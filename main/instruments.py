@@ -150,16 +150,16 @@ instruments_arr = np.array(list(instruments.values()))
 instruments_group_arr = np.array(list(instruments_group.values()))
 
 instruments_map_arr = {
-    instruments_group_arr[0]: instruments_arr[0:16],  # keyboard OK
-    instruments_group_arr[1]: instruments_arr[17:21],  # organ OK
-    instruments_group_arr[2]: instruments_arr[22:24],  # accordion OK
-    instruments_group_arr[3]: instruments_arr[25:32],  # guitar OK
-    instruments_group_arr[4]: instruments_arr[33:40],  # bass OK
-    instruments_group_arr[5]: instruments_arr[40:48],  # string OK
-    instruments_group_arr[6]: instruments_arr[49:56],  # ensemble OK
-    instruments_group_arr[7]: instruments_arr[57:64],  # brass OK
-    instruments_group_arr[8]: instruments_arr[65:80],  # woodwind OK
-    instruments_group_arr[9]: instruments_arr[81:104],  # synth OK
+    instruments_group_arr[0]: instruments_arr[0:16],  # keyboard
+    instruments_group_arr[1]: instruments_arr[17:21],  # organ
+    instruments_group_arr[2]: instruments_arr[22:24],  # accordion
+    instruments_group_arr[3]: instruments_arr[25:32],  # guitar
+    instruments_group_arr[4]: instruments_arr[33:40],  # bass
+    instruments_group_arr[5]: instruments_arr[40:48],  # string
+    instruments_group_arr[6]: instruments_arr[49:56],  # ensemble
+    instruments_group_arr[7]: instruments_arr[57:64],  # brass
+    instruments_group_arr[8]: instruments_arr[65:80],  # woodwind
+    instruments_group_arr[9]: instruments_arr[81:104],  # synth
     instruments_group_arr[10]: instruments_arr[105:120],  # ethnic + percussion
     instruments_group_arr[11]: instruments_arr[121:128],  # sound effects
 }

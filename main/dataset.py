@@ -22,7 +22,7 @@ class Dataset(torch.utils.data.Dataset):
         # print(len(label))
         # print(type(mel_spec))
         # print(torch.Tensor(mel_spec).shape)
-        # print("dupa", len(self.melspectrograms[index]))
+        # print("test", len(self.melspectrograms[index]))
 
         # print(1 * segment_length_samples)
         # print(2 * segment_length_samples)
