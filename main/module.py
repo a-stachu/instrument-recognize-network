@@ -6,6 +6,7 @@ from dataset import train_loader, test_loader
 from cnn import Net
 from labels import prepare_labels_short
 from sklearn.metrics import accuracy_score
+from pytorch_lightning.loggers import TensorBoardLogger
 
 
 class Module(pl.LightningModule):
@@ -52,8 +53,7 @@ class Module(pl.LightningModule):
     def training_step(self, batch):
         segments, labels = batch["segments"], batch["labels"]
         loss, accuracy = self.step(segments, labels)
-        # self.log("accuracy", accuracy, prog_bar=True)
-
+        self.log("accuracy", accuracy, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -73,12 +73,14 @@ class Module(pl.LightningModule):
         return test_loader
 
 
+logger = TensorBoardLogger("logs/", name="logger")
 true_labels = prepare_labels_short(0)
 
 learner = Module(Net(12), true_labels)
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=200, callbacks=[checkpoint]
+    accelerator="gpu", devices=1, max_epochs=100, callbacks=[checkpoint], logger=logger
 )
 trainer.fit(learner, train_dataloaders=train_loader)
-trainer.test(model=learner, dataloaders=test_loader)
+
+# trainer.test(model=learner, dataloaders=test_loader)
