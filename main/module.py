@@ -2,7 +2,7 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.optim as optim
 import torch
-from dataset import train_loader, test_loader
+from dataset import train_loader
 from cnn import Net
 from labels import prepare_labels_short
 from sklearn.metrics import accuracy_score
@@ -69,8 +69,8 @@ class Module(pl.LightningModule):
     def train_dataloader(self):
         return train_loader
 
-    def test_dataloader(self):
-        return test_loader
+    # def test_dataloader(self):
+    #     return test_loader
 
 
 logger = TensorBoardLogger("logs/", name="logger")
@@ -79,7 +79,7 @@ true_labels = prepare_labels_short(0)
 learner = Module(Net(12), true_labels)
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=100, callbacks=[checkpoint], logger=logger
+    accelerator="gpu", devices=1, max_epochs=10, callbacks=[checkpoint], logger=logger
 )
 trainer.fit(learner, train_dataloaders=train_loader)
 
