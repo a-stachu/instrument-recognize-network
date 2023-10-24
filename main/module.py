@@ -33,6 +33,7 @@ class Module(pl.LightningModule):
         y_pred_all = []  # final array with all predictions as a whole
         for sample in prediction:
             y_pred.append([1 if i >= 1e-01 else 0 for i in sample])
+
         for y in y_pred:
             if y_pred_all == []:  # initial value
                 y_pred_all = y
@@ -43,7 +44,7 @@ class Module(pl.LightningModule):
                     if y[el] == 1:
                         y_pred_all[el] = 1
 
-        accuracy = accuracy_score(true_labels, y_pred_all)
+        accuracy = 0.1  # accuracy_score(y, prediction)
 
         # argmax = torch.argmax(output, dim=1)
         # value, index = torch.topk(output, dim=1, k=12)
@@ -76,10 +77,10 @@ class Module(pl.LightningModule):
 logger = TensorBoardLogger("logs/", name="logger")
 true_labels = prepare_labels_short(0)
 
-learner = Module(Net(12), true_labels)
+learner = Module(Net(128), true_labels)
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=100, callbacks=[checkpoint], logger=logger
+    accelerator="gpu", devices=1, max_epochs=10, callbacks=[checkpoint], logger=logger
 )
 trainer.fit(learner, train_dataloaders=train_loader)
 

@@ -79,8 +79,9 @@ for file in range(len(test_files_path)):
     melspectrogram = np.load(file_path)
     test_files.append(melspectrogram)
 
-train_files_labels = prepare_labels(0)[0 : len(train_files)]
-test_files_labels = prepare_labels(1)[0 : len(test_files)]
+
+train_files_labels = prepare_labels(0)[1]
+test_files_labels = prepare_labels(1)[1]
 
 # all segments of melspec have to be the same size
 for file in train_files:
