@@ -16,20 +16,10 @@ def prepare_labels(index):
     empty_one_hot = np.zeros(num_instruments)
 
     main_path = "./musicnet/train_labels"
+    train_path = "./train_data_npy_100"
     train_labels = os.listdir(main_path)
     file_path = os.path.join(main_path, train_labels[index])
-    file_name = os.path.splitext(os.path.basename(file_path))
-
-    train_path = "./train_data_npy_100"
-
     csv_file = pd.read_csv(file_path)
-    metadata_file = pd.read_csv("musicnet_metadata.csv")
-
-    file_length = (
-        int(metadata_file[metadata_file["id"] == int(file_name[0])]["seconds"]) + 1
-    ) * 1000  # seconds
-
-    # num_sequences = int(round(file_length / 10, 0) / 100)  # sequences
 
     num_sequences = len(
         os.listdir(os.path.join(train_path, os.listdir(train_path)[index]))
@@ -46,7 +36,7 @@ def prepare_labels(index):
         for key, value in instruments_map_arr.items():
             if np.any(value == instruments[record.instrument]):
                 record_instrument_genre = key  # instrumental family
-                record_instrument = instruments[record.instrument]
+                record_instrument = instruments[record.instrument]  # instrument
                 break
 
         # one hot encode one's family
@@ -80,8 +70,10 @@ def prepare_labels(index):
 
 # one label for whole melspec
 def prepare_labels_short(index):
-    num_instruments_map = len(instruments_map_arr)
-    empty_one_hot = np.zeros(num_instruments_map)
+    num_instruments_family = len(instruments_map_arr)
+    num_instruments = len(instruments)
+    empty_one_hot_family = np.zeros(num_instruments_family)
+    empty_one_hot = np.zeros(num_instruments)
 
     main_path = "./musicnet/train_labels"
     train_labels = os.listdir(main_path)
@@ -89,14 +81,18 @@ def prepare_labels_short(index):
 
     csv_file = pd.read_csv(file_path)
 
+    true_family_short = np.array(empty_one_hot_family)
     true_instruments_short = np.array(empty_one_hot)
 
     for record_index in range(csv_file.index.stop):
         record = csv_file.iloc[record_index]
 
+        # [FAMILY]
+        # get instrumental family
         for key, value in instruments_map_arr.items():
             if np.any(value == instruments[record.instrument]):
                 record_instrument_genre = key  # instrumental family
+                record_instrument = instruments[record.instrument]  # instrument
                 break
 
         for key, value in instruments_group.items():
@@ -106,6 +102,32 @@ def prepare_labels_short(index):
                 )
                 break
 
-        true_instruments_short[record_instrument_genre_key - 1] = 1
+        # [INSTRUMENT]
+        # one hot encode one's family
+        for key, value in instruments.items():
+            if value == record_instrument:
+                record_instrument_key = (
+                    key  # position of instrument in instruments (index)
+                )
+                break
 
-    return true_instruments_short
+        true_family_short[record_instrument_genre_key - 1] = 1
+        true_instruments_short[record_instrument_key - 1] = 1
+
+    return true_family_short, true_instruments_short
+
+
+# main_path = "./musicnet/train_labels"
+# train_path = "./train_data_npy_100"
+
+# train_labels = os.listdir(main_path)
+# test = []
+# for x in range(len(train_labels)):
+#     for y in range(
+#         len(os.listdir(os.path.join(train_path, os.listdir(train_path)[x])))
+#     ):
+#         test.append(prepare_labels_short(x))
+
+# print(len(test))
+
+print(len(prepare_labels_short(0)[1]))

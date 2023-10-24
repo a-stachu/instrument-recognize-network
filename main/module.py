@@ -74,8 +74,7 @@ class Module(pl.LightningModule):
 
 
 logger = TensorBoardLogger("logs/", name="logger")
-true_labels = prepare_labels_short(0)
-
+true_labels = prepare_labels_short(0)  # examplary
 learner = Module(Net(12), true_labels)
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
