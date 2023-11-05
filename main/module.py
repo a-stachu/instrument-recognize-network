@@ -7,6 +7,12 @@ from cnn import Net
 from labels import prepare_labels_short
 from sklearn.metrics import accuracy_score
 from pytorch_lightning.loggers import TensorBoardLogger
+import torchmetrics
+from torchmetrics.classification import ConfusionMatrix
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sn
+import numpy as np
 
 
 class Module(pl.LightningModule):
@@ -20,6 +26,9 @@ class Module(pl.LightningModule):
         self.learning_rate = learning_rate
         self.model = model
         self.true_labels = true_labels
+
+        self.training_step_preds = []
+        self.training_step_target = []
 
     def forward(self, x):
         return self.model(x)
@@ -49,11 +58,13 @@ class Module(pl.LightningModule):
         # argmax = torch.argmax(output, dim=1)
         # value, index = torch.topk(output, dim=1, k=12)
 
-        return loss, accuracy
+        return loss, accuracy, prediction
 
     def training_step(self, batch):
         segments, labels = batch["segments"], batch["labels"]
-        loss, accuracy = self.step(segments, labels)
+        loss, accuracy, prediction = self.step(segments, labels)
+        self.training_step_preds.append(prediction)
+        self.training_step_target.append(labels)
         self.log("accuracy", accuracy, prog_bar=True)
         return loss
 
@@ -73,6 +84,35 @@ class Module(pl.LightningModule):
     def test_dataloader(self):
         return test_loader
 
+    def on_train_epoch_end(self):
+        # [CONFUSION MATRIX skeleton]
+        # preds = torch.cat(self.training_step_preds)
+        # target = torch.cat(self.training_step_target)
+        target = torch.tensor([[0, 1, 0], [1, 0, 1]])
+        preds = torch.tensor([[0, 0, 1], [1, 0, 1]])
+        confusion_matrix = torchmetrics.ConfusionMatrix(
+            task="multiclass", num_classes=2, threshold=0.05
+        )
+        # device = "cuda" if torch.cuda.is_available() else "cpu"
+        # confusion_matrix.to(device)
+        confusion_matrix(preds, target)
+        cm = confusion_matrix.compute().detach().cpu().numpy()
+        confusion_matrix_computed = cm.astype(float) / cm.sum(axis=1)[:, np.newaxis]
+
+        df_cm = pd.DataFrame(
+            confusion_matrix_computed,
+        )
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+        fig.subplots_adjust(left=0.05, right=0.65)
+        sn.set(font_scale=1.2)
+        sn.heatmap(df_cm, annot=True, annot_kws={"size": 16}, fmt=".2f", ax=ax)
+
+        plt.show()
+
+        self.training_step_preds.clear()  # free memory
+        self.training_step_target.clear()  # free memory
+
 
 logger = TensorBoardLogger("logs/", name="logger")
 true_labels = prepare_labels_short(0)
@@ -80,7 +120,7 @@ true_labels = prepare_labels_short(0)
 learner = Module(Net(128), true_labels)
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=10, callbacks=[checkpoint], logger=logger
+    accelerator="gpu", devices=1, max_epochs=1, callbacks=[checkpoint], logger=logger
 )
 trainer.fit(learner, train_dataloaders=train_loader)
 
