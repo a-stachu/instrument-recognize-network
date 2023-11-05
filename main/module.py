@@ -8,7 +8,12 @@ from labels import prepare_labels_short
 from sklearn.metrics import accuracy_score
 from pytorch_lightning.loggers import TensorBoardLogger
 import torchmetrics
-from torchmetrics.classification import ConfusionMatrix
+from torchmetrics.classification import (
+    ConfusionMatrix,
+    BinaryPrecision,
+    BinaryRecall,
+    BinaryF1Score,
+)
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sn
@@ -34,9 +39,22 @@ class Module(pl.LightningModule):
         return self.model(x)
 
     def step(self, x, y):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         prediction = self(x)
         loss = torch.nn.MSELoss()
         loss = loss(prediction, y)  # y -> true labels
+
+        precision_calc = BinaryPrecision(threshold=1e-04)
+        precision_calc.to(device)
+        precision = precision_calc(prediction, y).item()
+
+        recall_calc = BinaryRecall(threshold=1e-04)
+        recall_calc.to(device)
+        recall = recall_calc(prediction, y).item()
+
+        f1_calc = BinaryF1Score(threshold=1e-04)
+        f1_calc.to(device)
+        f1 = f1_calc(prediction, y).item()
 
         y_pred = []
         y_pred_all = []  # final array with all predictions as a whole
@@ -58,14 +76,17 @@ class Module(pl.LightningModule):
         # argmax = torch.argmax(output, dim=1)
         # value, index = torch.topk(output, dim=1, k=12)
 
-        return loss, accuracy, prediction
+        return loss, accuracy, prediction, precision, recall, f1
 
     def training_step(self, batch):
         segments, labels = batch["segments"], batch["labels"]
-        loss, accuracy, prediction = self.step(segments, labels)
+        loss, accuracy, prediction, precision, recall, f1 = self.step(segments, labels)
         self.training_step_preds.append(prediction)
         self.training_step_target.append(labels)
         self.log("accuracy", accuracy, prog_bar=True)
+        self.log("precision", precision, prog_bar=True)
+        self.log("recall", recall, prog_bar=True)
+        self.log("F1", f1, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -108,7 +129,7 @@ class Module(pl.LightningModule):
         sn.set(font_scale=1.2)
         sn.heatmap(df_cm, annot=True, annot_kws={"size": 16}, fmt=".2f", ax=ax)
 
-        plt.show()
+        # plt.show()
 
         self.training_step_preds.clear()  # free memory
         self.training_step_target.clear()  # free memory
@@ -117,10 +138,10 @@ class Module(pl.LightningModule):
 logger = TensorBoardLogger("logs/", name="logger")
 true_labels = prepare_labels_short(0)
 
-learner = Module(Net(128), true_labels)
+learner = Module(Net(12), true_labels)
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=1, callbacks=[checkpoint], logger=logger
+    accelerator="gpu", devices=1, max_epochs=100, callbacks=[checkpoint], logger=logger
 )
 trainer.fit(learner, train_dataloaders=train_loader)
 

@@ -80,7 +80,7 @@ for file in range(len(test_files_path)):
     test_files.append(melspectrogram)
 
 
-train_files_labels = prepare_labels(0)[1]
+train_files_labels = prepare_labels(0)[0]
 test_files_labels = prepare_labels(1)[1]
 
 # all segments of melspec have to be the same size
