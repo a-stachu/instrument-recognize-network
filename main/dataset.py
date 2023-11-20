@@ -5,9 +5,10 @@ from labels import prepare_labels
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, melspectrograms, labels, dimension):
+    def __init__(self, melspectrograms, labels_instruments, labels_family, dimension):
         self.melspectrograms = melspectrograms
-        self.labels = labels
+        self.labels_instruments = labels_instruments
+        self.labels_family = labels_family
         self.dimension = dimension
 
     def __len__(self):
@@ -15,7 +16,8 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         mel_spec = self.melspectrograms[index]
-        label = self.labels[index]
+        label_instruments = self.labels_instruments[index]
+        label_family = self.labels_family[index]
         dimension = self.dimension
 
         # print("len", segment_length_samples)
@@ -47,7 +49,8 @@ class Dataset(torch.utils.data.Dataset):
 
         sample = {
             "segments": resulting_tensor,
-            "labels": torch.Tensor(label),
+            "labels_instruments": torch.Tensor(label_instruments),
+            "labels_family": torch.Tensor(label_family),
         }
         # print(resulting_tensor.shape, "segments")
         # print(torch.Tensor(label).shape)
@@ -80,8 +83,11 @@ for file in range(len(test_files_path)):
     test_files.append(melspectrogram)
 
 
-train_files_labels = prepare_labels(0)[0]
+train_files_labels_family = prepare_labels(0)[0]
+train_files_labels_instruments = prepare_labels(0)[1]
 test_files_labels = prepare_labels(1)[1]
+
+print(train_files_labels_instruments)
 
 # all segments of melspec have to be the same size
 for file in train_files:
@@ -94,8 +100,13 @@ for file in test_files:
     if test_dimension < dim:
         test_dimension = dim
 
-train_dataset = Dataset(train_files, train_files_labels, train_dimension)
-test_dataset = Dataset(test_files, test_files_labels, test_dimension)
+train_dataset = Dataset(
+    train_files,
+    labels_family=train_files_labels_family,
+    labels_instruments=train_files_labels_instruments,
+    dimension=train_dimension,
+)
+# test_dataset = Dataset(test_files, test_files_labels, test_dimension)
 
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+# test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)

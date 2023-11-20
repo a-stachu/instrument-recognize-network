@@ -2,10 +2,9 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.optim as optim
 import torch
-from dataset import train_loader, test_loader
+from dataset import train_loader
 from cnn import Net
 from labels import prepare_labels_short
-from sklearn.metrics import accuracy_score
 from pytorch_lightning.loggers import TensorBoardLogger
 import torchmetrics
 from torchmetrics.classification import (
@@ -13,52 +12,68 @@ from torchmetrics.classification import (
     BinaryPrecision,
     BinaryRecall,
     BinaryF1Score,
+    BinaryAccuracy,
 )
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sn
 import numpy as np
+from instruments import instruments_map_arr_alternative, instruments_group
 
 
 class Module(pl.LightningModule):
     def __init__(
         self,
-        model,
-        true_labels,
+        model_instruments,
+        model_family,
+        true_labels_instruments,
+        true_labels_family,
         learning_rate=1e-3,
     ):
         super().__init__()
         self.learning_rate = learning_rate
-        self.model = model
-        self.true_labels = true_labels
+        self.model_instruments = model_instruments
+        self.model_family = model_family
+        self.true_labels_instruments = true_labels_instruments
+        self.true_labels_family = true_labels_family
 
-        self.training_step_preds = []
-        self.training_step_target = []
+        self.training_step_preds_instruments = []
+        self.training_step_target_instruments = []
+        self.training_step_preds_family = []
+        self.training_step_target_family = []
 
     def forward(self, x):
-        return self.model(x)
+        output_instruments = self.model_instruments(x)
+        output_family = self.model_family(x)
+        return output_instruments, output_family
 
-    def step(self, x, y):
+    def step(self, x, y_1, y_2):
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        prediction = self(x)
+        output_instruments, output_family = self(x)
+        prediction_2 = output_instruments
+        prediction_1 = output_family
         loss = torch.nn.MSELoss()
-        loss = loss(prediction, y)  # y -> true labels
+        loss_family = loss(prediction_1, y_1)  # y -> true labels
+        loss_instruments = loss(prediction_2, y_2)  # y -> true labels
 
         precision_calc = BinaryPrecision(threshold=1e-04)
         precision_calc.to(device)
-        precision = precision_calc(prediction, y).item()
+        precision_family = precision_calc(prediction_1, y_1).item()
+        precision_instruments = precision_calc(prediction_2, y_2).item()
 
         recall_calc = BinaryRecall(threshold=1e-04)
         recall_calc.to(device)
-        recall = recall_calc(prediction, y).item()
+        recall_family = recall_calc(prediction_1, y_1).item()
+        recall_instruments = recall_calc(prediction_2, y_2).item()
 
         f1_calc = BinaryF1Score(threshold=1e-04)
         f1_calc.to(device)
-        f1 = f1_calc(prediction, y).item()
+        f1_family = f1_calc(prediction_1, y_1).item()
+        f1_instruments = f1_calc(prediction_2, y_2).item()
 
         y_pred = []
         y_pred_all = []  # final array with all predictions as a whole
-        for sample in prediction:
+        for sample in prediction_1:
             y_pred.append([1 if i >= 1e-01 else 0 for i in sample])
 
         for y in y_pred:
@@ -71,23 +86,55 @@ class Module(pl.LightningModule):
                     if y[el] == 1:
                         y_pred_all[el] = 1
 
-        accuracy = 0.1  # accuracy_score(y, prediction)
+        y_pred_2 = self.score_level_fusion(prediction_1, prediction_2)
 
-        # argmax = torch.argmax(output, dim=1)
-        # value, index = torch.topk(output, dim=1, k=12)
+        accuracy_calc = BinaryAccuracy(threshold=1e-04)
+        accuracy_calc.to(device)
+        accuracy = accuracy_calc(torch.Tensor(y_pred_2).to(device), y_2)
 
-        return loss, accuracy, prediction, precision, recall, f1
+        return (
+            loss_family,
+            loss_instruments,
+            accuracy,
+            precision_family,
+            precision_instruments,
+            recall_family,
+            recall_instruments,
+            f1_family,
+            f1_instruments,
+        )
 
     def training_step(self, batch):
-        segments, labels = batch["segments"], batch["labels"]
-        loss, accuracy, prediction, precision, recall, f1 = self.step(segments, labels)
-        self.training_step_preds.append(prediction)
-        self.training_step_target.append(labels)
+        segments, labels_family, labels_instruments = (
+            batch["segments"],
+            batch["labels_family"],
+            batch["labels_instruments"],
+        )
+        (
+            loss_family,
+            loss_instruments,
+            accuracy,
+            precision_family,
+            precision_instruments,
+            recall_family,
+            recall_instruments,
+            f1_family,
+            f1_instruments,
+        ) = self.step(segments, labels_family, labels_instruments)
+
+        # self.training_step_preds.append(prediction)
+        # self.training_step_target.append(labels)
+
         self.log("accuracy", accuracy, prog_bar=True)
-        self.log("precision", precision, prog_bar=True)
-        self.log("recall", recall, prog_bar=True)
-        self.log("F1", f1, prog_bar=True)
-        return loss
+        self.log("precision_family", precision_family, prog_bar=True)
+        self.log("precision_instruments", precision_instruments, prog_bar=True)
+        self.log("recall_family", recall_family, prog_bar=True)
+        self.log("recall_instruments", recall_instruments, prog_bar=True)
+        self.log("F1_family", f1_family, prog_bar=True)
+        self.log("F1_instruments", f1_instruments, prog_bar=True)
+        return {
+            "loss": loss_family + loss_instruments,
+        }
 
     def test_step(self, batch, batch_idx):
         segments, labels = batch["segments"], batch["labels"]
@@ -106,42 +153,91 @@ class Module(pl.LightningModule):
         return test_loader
 
     def on_train_epoch_end(self):
-        # [CONFUSION MATRIX skeleton]
-        # preds = torch.cat(self.training_step_preds)
-        # target = torch.cat(self.training_step_target)
-        target = torch.tensor([[0, 1, 0], [1, 0, 1]])
-        preds = torch.tensor([[0, 0, 1], [1, 0, 1]])
-        confusion_matrix = torchmetrics.ConfusionMatrix(
-            task="multiclass", num_classes=2, threshold=0.05
-        )
-        # device = "cuda" if torch.cuda.is_available() else "cpu"
-        # confusion_matrix.to(device)
-        confusion_matrix(preds, target)
-        cm = confusion_matrix.compute().detach().cpu().numpy()
-        confusion_matrix_computed = cm.astype(float) / cm.sum(axis=1)[:, np.newaxis]
+        self.training_step_preds_family.clear()  # free memory
+        self.training_step_target_instruments.clear()  # free memory
+        self.training_step_preds_instruments.clear()  # free memory
+        self.training_step_target_family.clear()  # free memory
 
-        df_cm = pd.DataFrame(
-            confusion_matrix_computed,
-        )
+    def score_level_fusion(self, prediction_family, prediction_instruments):
+        y_pred_1 = []
 
-        fig, ax = plt.subplots(figsize=(10, 5))
-        fig.subplots_adjust(left=0.05, right=0.65)
-        sn.set(font_scale=1.2)
-        sn.heatmap(df_cm, annot=True, annot_kws={"size": 16}, fmt=".2f", ax=ax)
+        prediction_1 = prediction_family
+        for sample in prediction_1:
+            y_pred_1.append([1 if i >= 1e-01 else 0 for i in sample])
 
-        # plt.show()
+        y_pred_2 = []
 
-        self.training_step_preds.clear()  # free memory
-        self.training_step_target.clear()  # free memory
+        prediction_2 = prediction_instruments
+
+        decoded_y_pred_1 = []
+        for prediction in y_pred_1:
+            boosted_indexes_partial = []
+            for i, j in enumerate(prediction):
+                if j == 1:
+                    boosted_indexes_partial.append(i)
+            decoded_y_pred_1.append(
+                np.unique(np.array(boosted_indexes_partial).flatten())
+            )
+
+        boosted_instruments = []
+
+        for decoded_prediction in decoded_y_pred_1:
+            boosted_instruments_partial = []
+            for key, value in instruments_map_arr_alternative.items():
+                if np.isin(decoded_prediction, key).any():
+                    boosted_instruments_partial.append(value)
+                else:
+                    continue
+
+            if np.array(boosted_instruments_partial).size > 0:
+                if len(boosted_instruments_partial) == 1:
+                    boosted_instruments.append(np.array(boosted_instruments_partial))
+                else:
+                    boosted_instruments.append(
+                        np.unique(
+                            np.concatenate(
+                                (np.array(boosted_instruments_partial)).flatten()
+                            )
+                        )
+                    )
+            else:
+                boosted_instruments.append([])
+
+        for index in range(len(prediction_2)):
+            predicted_instruments = prediction_2[index].cpu().detach().numpy()
+
+            predicted_instruments_partial = []
+            threshold = 0
+            for i in range(len(predicted_instruments)):
+                if i in boosted_instruments[index]:
+                    threshold == 1e-04
+                else:
+                    threshold == 1
+                predicted_instruments_partial.append(
+                    1 if predicted_instruments[i] >= threshold else 0
+                )
+
+            y_pred_2.append(predicted_instruments_partial)
+
+        return y_pred_2
+
+    # def accuracy_whole(self):
 
 
 logger = TensorBoardLogger("logs/", name="logger")
-true_labels = prepare_labels_short(0)
+true_labels_instruments = prepare_labels_short(1)
+true_labels_family = prepare_labels_short(0)
 
-learner = Module(Net(12), true_labels)
+learner = Module(
+    model_family=Net(12),
+    model_instruments=Net(128),
+    true_labels_instruments=true_labels_instruments,
+    true_labels_family=true_labels_family,
+)
+
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=100, callbacks=[checkpoint], logger=logger
+    accelerator="gpu", devices=1, max_epochs=10, callbacks=[checkpoint], logger=logger
 )
 trainer.fit(learner, train_dataloaders=train_loader)
 

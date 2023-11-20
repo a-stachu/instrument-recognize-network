@@ -163,3 +163,18 @@ instruments_map_arr = {
     instruments_group_arr[10]: instruments_arr[105:120],  # ethnic + percussion
     instruments_group_arr[11]: instruments_arr[121:128],  # sound effects
 }
+
+instruments_map_arr_alternative = {
+    0: np.arange(0, 17),  # keyboard
+    1: np.arange(17, 22),  # organ
+    2: np.arange(22, 25),  # accordion
+    3: np.arange(25, 33),  # guitar
+    4: np.arange(33, 41),  # bass
+    5: np.arange(40, 49),  # string
+    6: np.arange(49, 57),  # ensemble
+    7: np.arange(57, 65),  # brass
+    8: np.arange(65, 81),  # woodwind
+    9: np.arange(81, 105),  # synth
+    10: np.arange(105, 121),  # ethnic + percussion
+    11: np.arange(121, 129),  # sound effects
+}
