@@ -18,7 +18,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sn
 import numpy as np
-from instruments import instruments_map_arr_alternative, instruments_group
+from instruments import instruments_map_arr_alternative_short as instruments_map_arr_alternative
 
 
 class Module(pl.LightningModule):
@@ -90,6 +90,7 @@ class Module(pl.LightningModule):
 
         accuracy_calc = BinaryAccuracy(threshold=1e-04)
         accuracy_calc.to(device)
+        #print(y_pred_2, y_2)
         accuracy = accuracy_calc(torch.Tensor(y_pred_2).to(device), y_2)
 
         return (
@@ -193,31 +194,53 @@ class Module(pl.LightningModule):
                 if len(boosted_instruments_partial) == 1:
                     boosted_instruments.append(np.array(boosted_instruments_partial))
                 else:
-                    boosted_instruments.append(
-                        np.unique(
-                            np.concatenate(
-                                (np.array(boosted_instruments_partial)).flatten()
-                            )
-                        )
-                    )
+                    try:
+                        result =  np.concatenate((np.array(boosted_instruments_partial)).flatten())
+                    except ValueError as e:
+                        if "zero-dimensional" in str(e):
+                            correct_result = (np.array(boosted_instruments_partial)).flatten()
+                            boosted_instruments.append(np.unique(correct_result))
+                    else:
+                        boosted_instruments.append(np.unique(result))
             else:
                 boosted_instruments.append([])
 
+            
         for index in range(len(prediction_2)):
             predicted_instruments = prediction_2[index].cpu().detach().numpy()
-
             predicted_instruments_partial = []
             threshold = 0
-            for i in range(len(predicted_instruments)):
-                if i in boosted_instruments[index]:
-                    threshold == 1e-04
-                else:
-                    threshold == 1
-                predicted_instruments_partial.append(
-                    1 if predicted_instruments[i] >= threshold else 0
-                )
 
-            y_pred_2.append(predicted_instruments_partial)
+          
+
+            for i in range(len(predicted_instruments)):
+
+                try:
+                    custom_range = boosted_instruments[index]
+                   
+                except IndexError as e:
+                    custom_range = boosted_instruments[index - 1]
+                    
+                    if i in custom_range:
+                        threshold == 1e-04
+                    else:
+                        threshold == 1
+                    predicted_instruments_partial.append(
+                        1 if predicted_instruments[i] >= threshold else 0
+                    )
+                
+                else:
+                    if i in custom_range:
+                        threshold == 1e-04
+                    else:
+                        threshold == 1
+                    predicted_instruments_partial.append(
+                        1 if predicted_instruments[i] >= threshold else 0
+                    )
+                    
+                if(len(predicted_instruments_partial) == 11):
+                    y_pred_2.append(predicted_instruments_partial)
+                
 
         return y_pred_2
 
@@ -229,15 +252,15 @@ true_labels_instruments = prepare_labels_short(1)
 true_labels_family = prepare_labels_short(0)
 
 learner = Module(
-    model_family=Net(12),
-    model_instruments=Net(128),
+    model_family=Net(4),
+    model_instruments=Net(11),
     true_labels_instruments=true_labels_instruments,
     true_labels_family=true_labels_family,
 )
 
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=10, callbacks=[checkpoint], logger=logger
+    accelerator="gpu", devices=1, max_epochs=100, callbacks=[checkpoint], logger=logger
 )
 trainer.fit(learner, train_dataloaders=train_loader)
 

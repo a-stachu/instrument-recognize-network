@@ -17,9 +17,9 @@ class Net(nn.Module):
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
 
         # Fully connected layers
-        self.fc1 = nn.Linear(25 * 64 * 32, 128)
+        self.fc1 = nn.Linear(51200, 11)
         self.relu3 = nn.ReLU()
-        self.fc2 = nn.Linear(128, num_classes)
+        self.fc2 = nn.Linear(11, num_classes)
 
     def forward(self, x):
         x = self.conv1(x)

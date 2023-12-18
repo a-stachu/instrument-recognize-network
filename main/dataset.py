@@ -85,9 +85,13 @@ for file in range(len(test_files_path)):
 
 train_files_labels_family = prepare_labels(0)[0]
 train_files_labels_instruments = prepare_labels(0)[1]
+
+print(train_files_labels_family)
+print(train_files_labels_instruments)
+
 test_files_labels = prepare_labels(1)[1]
 
-print(train_files_labels_instruments)
+#print(train_files_labels_instruments)
 
 # all segments of melspec have to be the same size
 for file in train_files:

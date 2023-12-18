@@ -6,6 +6,15 @@ import torch
 from labels import prepare_labels, prepare_labels_short
 from helpers import convert
 
+import pandas as pd
+import os
+import numpy as np
+import math
+
+from instruments import *
+
+from helpers import *
+
 sample_rate = 44100
 hop_length = 441
 n_fft = 1024
@@ -30,7 +39,7 @@ mel_spectrogram_db = torchaudio.transforms.AmplitudeToDB()(mel_spectrogram)
 plt.figure(figsize=(12, 4))
 plt.imshow(mel_spectrogram_db[0].numpy(), cmap="plasma", origin="lower", aspect="auto")
 plt.colorbar(format="%+2.0f dB")
-plt.show()
+#plt.show()
 
 dim = 106904
 
@@ -42,3 +51,21 @@ print(resulting_tensor.shape)
 # test_labels.append(prepare_labels_short(0))
 test_labels = prepare_labels(0)
 print(len(test_labels))
+
+main_path = "./musicnet/train_labels"
+train_path = "./train_data_npy_100"
+train_labels = os.listdir(main_path)
+
+#print(train_labels)
+
+# check instruments in csv
+names = []
+for length in range(len(train_labels)):
+    file_path = os.path.join(main_path, train_labels[length])
+    csv_file = pd.read_csv(file_path)
+    for index in range(len(csv_file)):
+        names.append(csv_file["instrument"][index])
+
+print(len(train_labels))    
+print(len(names))
+print(list(set(names)))

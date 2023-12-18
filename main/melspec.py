@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 from labels import prepare_labels
 from helpers import convert
-from instruments import *
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
