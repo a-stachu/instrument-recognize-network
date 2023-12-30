@@ -56,6 +56,10 @@ class Dataset(torch.utils.data.Dataset):
         # print(torch.Tensor(label).shape)
         return sample
 
+file_count = 0
+for root, dirs, files in os.walk("./train_data_npy_100"):
+        file_count += len(files)
+print(file_count)
 
 train_path = "./train_data_npy_100/1727"
 train_files_path = os.listdir(train_path)
@@ -114,3 +118,5 @@ train_dataset = Dataset(
 
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
 # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
+
+print(len(train_dataset))

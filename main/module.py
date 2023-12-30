@@ -86,17 +86,21 @@ class Module(pl.LightningModule):
                     if y[el] == 1:
                         y_pred_all[el] = 1
 
-        y_pred_2 = self.score_level_fusion(prediction_1, prediction_2)
+        y_pred_2, y_pred_1 = self.score_level_fusion(prediction_1, prediction_2)
 
         accuracy_calc = BinaryAccuracy(threshold=1e-04)
         accuracy_calc.to(device)
         #print(y_pred_2, y_2)
         accuracy = accuracy_calc(torch.Tensor(y_pred_2).to(device), y_2)
+        accuracy_family = accuracy_calc(torch.Tensor(prediction_1).to(device), y_1)
+        accuracy_instrument = accuracy_calc(torch.Tensor(prediction_2).to(device), y_2)
 
         return (
             loss_family,
             loss_instruments,
             accuracy,
+            accuracy_family,
+            accuracy_instrument,
             precision_family,
             precision_instruments,
             recall_family,
@@ -115,6 +119,8 @@ class Module(pl.LightningModule):
             loss_family,
             loss_instruments,
             accuracy,
+            accuracy_family,
+            accuracy_instrument,
             precision_family,
             precision_instruments,
             recall_family,
@@ -127,6 +133,8 @@ class Module(pl.LightningModule):
         # self.training_step_target.append(labels)
 
         self.log("accuracy", accuracy, prog_bar=True)
+        self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
+        self.log("accuracy_family", accuracy_family, prog_bar=True)
         self.log("precision_family", precision_family, prog_bar=True)
         self.log("precision_instruments", precision_instruments, prog_bar=True)
         self.log("recall_family", recall_family, prog_bar=True)
@@ -242,7 +250,7 @@ class Module(pl.LightningModule):
                     y_pred_2.append(predicted_instruments_partial)
                 
 
-        return y_pred_2
+        return y_pred_2, y_pred_1
 
     # def accuracy_whole(self):
 
@@ -260,7 +268,7 @@ learner = Module(
 
 checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
 trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=100, callbacks=[checkpoint], logger=logger
+    accelerator="gpu", devices=1, max_epochs=200, callbacks=[checkpoint], logger=logger, log_every_n_steps=50
 )
 trainer.fit(learner, train_dataloaders=train_loader)
 
