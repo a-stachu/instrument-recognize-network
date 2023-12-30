@@ -61,28 +61,20 @@ class Dataset(torch.utils.data.Dataset):
 file_count = 0
 for root, dirs, files in os.walk("./train_data_npy_100"):
     file_count += len(files)
-print(file_count)
+# print(file_count)
 
 
 train_files = []
 train_files_labels = []
 
-test_path = "./train_data_npy_100/1728"
-test_files_path = os.listdir(test_path)
 test_files = []
 test_files_labels = []
 
 train_dimension = 0  # init state
 test_dimension = 0  # init state
 
-# test files
-for file in range(len(test_files_path)):
-    file_path = os.path.join(test_path, test_files_path[file])
-    melspectrogram = np.load(file_path)
-    test_files.append(melspectrogram)
 
-
-# @test_files_labels = prepare_labels(1, 1000)[1]
+# test_files_labels = prepare_labels(1, 1000)[1]
 
 # print(train_files_labels_instruments)
 

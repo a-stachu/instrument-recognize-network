@@ -31,7 +31,7 @@ def shorten(input, short_set):
 
 
 # one label for one segment of melspec
-def prepare_labels(index, case, train_path):
+def prepare_labels(index, case, path, mode):
     num_instruments_family = len(instruments_map_arr)
     num_instruments = len(instruments)
     empty_one_hot_family = np.zeros(num_instruments_family)
@@ -40,14 +40,15 @@ def prepare_labels(index, case, train_path):
     empty_one_hot_family_short = np.zeros(len(instruments_map_arr_short))
     empty_one_hot_short = np.zeros(len(instruments_short))
 
-    main_path = "./musicnet/train_labels"
-    train_labels = os.listdir(main_path)
-    file_path = os.path.join(main_path, train_labels[index])
+    if mode == "train":
+        main_path = "./musicnet/train_labels"
+    else:
+        main_path = "./musicnet/test_labels"
+    labels = os.listdir(main_path)
+    file_path = os.path.join(main_path, labels[index])
     csv_file = pd.read_csv(file_path)
 
-    num_sequences = len(
-        os.listdir(os.path.join(train_path, os.listdir(train_path)[index]))
-    )
+    num_sequences = len(os.listdir(os.path.join(path, os.listdir(path)[index])))
 
     # print(num_sequences)
 

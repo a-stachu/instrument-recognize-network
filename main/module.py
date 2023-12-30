@@ -18,6 +18,8 @@ from instruments import (
     instruments_map_arr_alternative_short as instruments_map_arr_alternative,
 )
 
+from loaders import load_test_data, load_training_data
+
 
 class Module(pl.LightningModule):
     def __init__(
@@ -26,6 +28,7 @@ class Module(pl.LightningModule):
         model_family,
         true_labels_instruments,
         true_labels_family,
+        variant,
         learning_rate=1e-3,
     ):
         super().__init__()
@@ -34,7 +37,7 @@ class Module(pl.LightningModule):
         self.model_family = model_family
         self.true_labels_instruments = true_labels_instruments
         self.true_labels_family = true_labels_family
-
+        self.variant = variant
         self.training_step_preds_instruments = []
         self.training_step_target_instruments = []
         self.training_step_preds_family = []
@@ -144,20 +147,46 @@ class Module(pl.LightningModule):
         }
 
     def test_step(self, batch, batch_idx):
-        segments, labels = batch["segments"], batch["labels"]
-        loss, accuracy = self.step(segments, labels)
+        segments, labels_family, labels_instruments = (
+            batch["segments"],
+            batch["labels_family"],
+            batch["labels_instruments"],
+        )
+        (
+            loss_family,
+            loss_instruments,
+            accuracy,
+            accuracy_family,
+            accuracy_instrument,
+            precision_family,
+            precision_instruments,
+            recall_family,
+            recall_instruments,
+            f1_family,
+            f1_instruments,
+        ) = self.step(segments, labels_family, labels_instruments)
         self.log("accuracy", accuracy, prog_bar=True)
-        return loss
+        self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
+        self.log("accuracy_family", accuracy_family, prog_bar=True)
+        self.log("precision_family", precision_family, prog_bar=True)
+        self.log("precision_instruments", precision_instruments, prog_bar=True)
+        self.log("recall_family", recall_family, prog_bar=True)
+        self.log("recall_instruments", recall_instruments, prog_bar=True)
+        self.log("F1_family", f1_family, prog_bar=True)
+        self.log("F1_instruments", f1_instruments, prog_bar=True)
+        return {
+            "loss": loss_family + loss_instruments,
+        }
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
 
     def train_dataloader(self):
-        return train_loader
+        return load_training_data(self.variant)
 
     def test_dataloader(self):
-        return test_loader
+        return load_test_data(self.variant)
 
     def on_train_epoch_end(self):
         self.training_step_preds_family.clear()  # free memory
