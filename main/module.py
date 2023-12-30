@@ -2,10 +2,6 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.optim as optim
 import torch
-from dataset import train_loader
-from cnn import Net
-from labels import prepare_labels_short
-from pytorch_lightning.loggers import TensorBoardLogger
 import torchmetrics
 from torchmetrics.classification import (
     ConfusionMatrix,
@@ -18,7 +14,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sn
 import numpy as np
-from instruments import instruments_map_arr_alternative_short as instruments_map_arr_alternative
+from instruments import (
+    instruments_map_arr_alternative_short as instruments_map_arr_alternative,
+)
 
 
 class Module(pl.LightningModule):
@@ -90,7 +88,7 @@ class Module(pl.LightningModule):
 
         accuracy_calc = BinaryAccuracy(threshold=1e-04)
         accuracy_calc.to(device)
-        #print(y_pred_2, y_2)
+        # print(y_pred_2, y_2)
         accuracy = accuracy_calc(torch.Tensor(y_pred_2).to(device), y_2)
         accuracy_family = accuracy_calc(torch.Tensor(prediction_1).to(device), y_1)
         accuracy_instrument = accuracy_calc(torch.Tensor(prediction_2).to(device), y_2)
@@ -203,32 +201,32 @@ class Module(pl.LightningModule):
                     boosted_instruments.append(np.array(boosted_instruments_partial))
                 else:
                     try:
-                        result =  np.concatenate((np.array(boosted_instruments_partial)).flatten())
+                        result = np.concatenate(
+                            (np.array(boosted_instruments_partial)).flatten()
+                        )
                     except ValueError as e:
                         if "zero-dimensional" in str(e):
-                            correct_result = (np.array(boosted_instruments_partial)).flatten()
+                            correct_result = (
+                                np.array(boosted_instruments_partial)
+                            ).flatten()
                             boosted_instruments.append(np.unique(correct_result))
                     else:
                         boosted_instruments.append(np.unique(result))
             else:
                 boosted_instruments.append([])
 
-            
         for index in range(len(prediction_2)):
             predicted_instruments = prediction_2[index].cpu().detach().numpy()
             predicted_instruments_partial = []
             threshold = 0
 
-          
-
             for i in range(len(predicted_instruments)):
-
                 try:
                     custom_range = boosted_instruments[index]
-                   
+
                 except IndexError as e:
                     custom_range = boosted_instruments[index - 1]
-                    
+
                     if i in custom_range:
                         threshold == 1e-04
                     else:
@@ -236,7 +234,7 @@ class Module(pl.LightningModule):
                     predicted_instruments_partial.append(
                         1 if predicted_instruments[i] >= threshold else 0
                     )
-                
+
                 else:
                     if i in custom_range:
                         threshold == 1e-04
@@ -245,31 +243,10 @@ class Module(pl.LightningModule):
                     predicted_instruments_partial.append(
                         1 if predicted_instruments[i] >= threshold else 0
                     )
-                    
-                if(len(predicted_instruments_partial) == 11):
+
+                if len(predicted_instruments_partial) == 11:
                     y_pred_2.append(predicted_instruments_partial)
-                
 
         return y_pred_2, y_pred_1
 
     # def accuracy_whole(self):
-
-
-logger = TensorBoardLogger("logs/", name="logger")
-true_labels_instruments = prepare_labels_short(1)
-true_labels_family = prepare_labels_short(0)
-
-learner = Module(
-    model_family=Net(4),
-    model_instruments=Net(11),
-    true_labels_instruments=true_labels_instruments,
-    true_labels_family=true_labels_family,
-)
-
-checkpoint = pl.callbacks.ModelCheckpoint(monitor="loss")
-trainer = pl.Trainer(
-    accelerator="gpu", devices=1, max_epochs=200, callbacks=[checkpoint], logger=logger, log_every_n_steps=50
-)
-trainer.fit(learner, train_dataloaders=train_loader)
-
-# trainer.test(model=learner, dataloaders=test_loader)

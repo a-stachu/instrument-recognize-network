@@ -1,7 +1,8 @@
 import torch
 import os
 import numpy as np
-from labels import prepare_labels
+
+# from labels import prepare_labels
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -56,13 +57,13 @@ class Dataset(torch.utils.data.Dataset):
         # print(torch.Tensor(label).shape)
         return sample
 
+
 file_count = 0
 for root, dirs, files in os.walk("./train_data_npy_100"):
-        file_count += len(files)
+    file_count += len(files)
 print(file_count)
 
-train_path = "./train_data_npy_100/1727"
-train_files_path = os.listdir(train_path)
+
 train_files = []
 train_files_labels = []
 
@@ -74,12 +75,6 @@ test_files_labels = []
 train_dimension = 0  # init state
 test_dimension = 0  # init state
 
-# train files
-for file in range(len(train_files_path)):
-    file_path = os.path.join(train_path, train_files_path[file])
-    melspectrogram = np.load(file_path)
-    train_files.append(melspectrogram)
-
 # test files
 for file in range(len(test_files_path)):
     file_path = os.path.join(test_path, test_files_path[file])
@@ -87,15 +82,9 @@ for file in range(len(test_files_path)):
     test_files.append(melspectrogram)
 
 
-train_files_labels_family = prepare_labels(0)[0]
-train_files_labels_instruments = prepare_labels(0)[1]
+# @test_files_labels = prepare_labels(1, 1000)[1]
 
-print(train_files_labels_family)
-print(train_files_labels_instruments)
-
-test_files_labels = prepare_labels(1)[1]
-
-#print(train_files_labels_instruments)
+# print(train_files_labels_instruments)
 
 # all segments of melspec have to be the same size
 for file in train_files:
@@ -108,15 +97,7 @@ for file in test_files:
     if test_dimension < dim:
         test_dimension = dim
 
-train_dataset = Dataset(
-    train_files,
-    labels_family=train_files_labels_family,
-    labels_instruments=train_files_labels_instruments,
-    dimension=train_dimension,
-)
 # test_dataset = Dataset(test_files, test_files_labels, test_dimension)
 
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
-# test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
 
-print(len(train_dataset))
+# test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32)
