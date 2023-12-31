@@ -16,6 +16,9 @@ import seaborn as sn
 import numpy as np
 from instruments import (
     instruments_map_arr_alternative_short as instruments_map_arr_alternative,
+    instruments_group_short,
+    instruments_short,
+    instruments,
 )
 
 from loaders import load_test_data, load_training_data
@@ -38,10 +41,10 @@ class Module(pl.LightningModule):
         self.true_labels_instruments = true_labels_instruments
         self.true_labels_family = true_labels_family
         self.variant = variant
-        self.training_step_preds_instruments = []
-        self.training_step_target_instruments = []
-        self.training_step_preds_family = []
-        self.training_step_target_family = []
+        self.training_step_preds_instruments = {}
+        self.training_step_target_instruments = {}
+        self.training_step_preds_family = {}
+        self.training_step_target_family = {}
 
     def forward(self, x):
         output_instruments = self.model_instruments(x)
@@ -91,10 +94,45 @@ class Module(pl.LightningModule):
 
         accuracy_calc = BinaryAccuracy(threshold=1e-04)
         accuracy_calc.to(device)
-        # print(y_pred_2, y_2)
+
         accuracy = accuracy_calc(torch.Tensor(y_pred_2).to(device), y_2)
         accuracy_family = accuracy_calc(torch.Tensor(prediction_1).to(device), y_1)
         accuracy_instrument = accuracy_calc(torch.Tensor(prediction_2).to(device), y_2)
+
+        for value in instruments_group_short.values():
+            self.training_step_preds_family[value] = 0
+            self.training_step_target_family[value] = 0
+
+        for value in instruments_short.values():
+            value = instruments[value]
+            self.training_step_preds_instruments[value] = 0
+            self.training_step_target_instruments[value] = 0
+
+        tensor_true1 = y_1.cpu().numpy()
+        tensor_predicted1 = prediction_1.cpu().detach().numpy()
+        for i in range(len(tensor_true1)):
+            for j in range(len(tensor_true1[i])):
+                if tensor_true1[i][j] == 1:
+                    if tensor_predicted1[i][j] >= 0.5:
+                        self.training_step_preds_family[
+                            instruments_group_short[j + 1]
+                        ] += 1
+                    self.training_step_target_family[
+                        instruments_group_short[j + 1]
+                    ] += 1
+
+        tensor_true2 = y_2.cpu().numpy()
+        tensor_predicted2 = prediction_2.cpu().detach().numpy()
+        for i in range(len(tensor_true2)):
+            for j in range(len(tensor_true2[i])):
+                if tensor_true2[i][j] == 1:
+                    if tensor_predicted2[i][j] >= 0.5:
+                        self.training_step_preds_instruments[
+                            instruments[instruments_short[j + 1]]
+                        ] += 1
+                    self.training_step_target_instruments[
+                        instruments[instruments_short[j + 1]]
+                    ] += 1
 
         return (
             loss_family,
@@ -129,9 +167,6 @@ class Module(pl.LightningModule):
             f1_family,
             f1_instruments,
         ) = self.step(segments, labels_family, labels_instruments)
-
-        # self.training_step_preds.append(prediction)
-        # self.training_step_target.append(labels)
 
         self.log("accuracy", accuracy, prog_bar=True)
         self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
@@ -189,6 +224,26 @@ class Module(pl.LightningModule):
         return load_test_data(self.variant)
 
     def on_train_epoch_end(self):
+        dict1 = {}
+        dict2 = {}
+
+        for key in self.training_step_target_family:
+            dict1[key] = [
+                self.training_step_preds_family[key],
+                self.training_step_target_family[key],
+            ]
+
+        for key in self.training_step_target_instruments:
+            dict2[key] = [
+                self.training_step_preds_instruments[key],
+                self.training_step_target_instruments[key],
+            ]
+
+        df1 = pd.DataFrame(dict1, index=["predicted", "true"])
+        df2 = pd.DataFrame(dict2, index=["predicted", "true"])
+        print(df1)
+        print(df2)
+
         self.training_step_preds_family.clear()  # free memory
         self.training_step_target_instruments.clear()  # free memory
         self.training_step_preds_instruments.clear()  # free memory
