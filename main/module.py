@@ -2,17 +2,15 @@ import pytorch_lightning as pl
 import torch.nn as nn
 import torch.optim as optim
 import torch
-import torchmetrics
+
 from torchmetrics.classification import (
-    ConfusionMatrix,
     BinaryPrecision,
     BinaryRecall,
     BinaryF1Score,
     BinaryAccuracy,
 )
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sn
+
 import numpy as np
 from instruments import (
     instruments_map_arr_alternative_short as instruments_map_arr_alternative,
@@ -22,6 +20,7 @@ from instruments import (
 )
 
 from loaders import load_test_data, load_training_data
+from helpers import populate_table
 
 
 class Module(pl.LightningModule):
@@ -35,45 +34,65 @@ class Module(pl.LightningModule):
         learning_rate=1e-3,
     ):
         super().__init__()
+
         self.learning_rate = learning_rate
+
         self.model_instruments = model_instruments
         self.model_family = model_family
         self.true_labels_instruments = true_labels_instruments
         self.true_labels_family = true_labels_family
+
         self.variant = variant
+
         self.training_step_preds_instruments = {}
         self.training_step_target_instruments = {}
         self.training_step_preds_family = {}
         self.training_step_target_family = {}
+
+        self.training_step_preds_instruments_mfcc = {}
+        self.training_step_target_instruments_mfcc = {}
+        self.training_step_preds_family_mfcc = {}
+        self.training_step_target_family_mfcc = {}
 
     def forward(self, x):
         output_instruments = self.model_instruments(x)
         output_family = self.model_family(x)
         return output_instruments, output_family
 
-    def step(self, x, y_1, y_2):
+    def step(self, x1, x2, y_1, y_2):
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        output_instruments, output_family = self(x)
+        output_instruments, output_family = self(x1)
+        output_instruments_mfcc, output_family_mfcc = self(x2)
         prediction_2 = output_instruments
         prediction_1 = output_family
+        prediction_2_mfcc = output_instruments_mfcc
+        prediction_1_mfcc = output_family_mfcc
         loss = torch.nn.MSELoss()
         loss_family = loss(prediction_1, y_1)  # y -> true labels
         loss_instruments = loss(prediction_2, y_2)  # y -> true labels
+        loss_family_mfcc = loss(prediction_1_mfcc, y_1)  # y -> true labels
+        loss_instruments_mfcc = loss(prediction_2_mfcc, y_2)  # y -> true labels
 
         precision_calc = BinaryPrecision(threshold=1e-04)
         precision_calc.to(device)
         precision_family = precision_calc(prediction_1, y_1).item()
         precision_instruments = precision_calc(prediction_2, y_2).item()
+        precision_family_mfcc = precision_calc(prediction_1_mfcc, y_1).item()
+        precision_instruments_mfcc = precision_calc(prediction_2_mfcc, y_2).item()
 
         recall_calc = BinaryRecall(threshold=1e-04)
         recall_calc.to(device)
         recall_family = recall_calc(prediction_1, y_1).item()
         recall_instruments = recall_calc(prediction_2, y_2).item()
+        recall_family_mfcc = recall_calc(prediction_1_mfcc, y_1).item()
+        recall_instruments_mfcc = recall_calc(prediction_2_mfcc, y_2).item()
 
         f1_calc = BinaryF1Score(threshold=1e-04)
         f1_calc.to(device)
         f1_family = f1_calc(prediction_1, y_1).item()
         f1_instruments = f1_calc(prediction_2, y_2).item()
+        f1_family_mfcc = f1_calc(prediction_1_mfcc, y_1).item()
+        f1_instruments_mfcc = f1_calc(prediction_2_mfcc, y_2).item()
 
         y_pred = []
         y_pred_all = []  # final array with all predictions as a whole
@@ -90,7 +109,9 @@ class Module(pl.LightningModule):
                     if y[el] == 1:
                         y_pred_all[el] = 1
 
-        y_pred_2, y_pred_1 = self.score_level_fusion(prediction_1, prediction_2)
+        y_pred_2, y_pred_2_mfcc, y_pred_2_combined = self.score_level_fusion(
+            prediction_1, prediction_2, prediction_1_mfcc, prediction_2_mfcc
+        )
 
         accuracy_calc = BinaryAccuracy(threshold=1e-04)
         accuracy_calc.to(device)
@@ -99,40 +120,94 @@ class Module(pl.LightningModule):
         accuracy_family = accuracy_calc(torch.Tensor(prediction_1).to(device), y_1)
         accuracy_instrument = accuracy_calc(torch.Tensor(prediction_2).to(device), y_2)
 
+        accuracy_mfcc = accuracy_calc(torch.Tensor(y_pred_2_mfcc).to(device), y_2)
+        accuracy_family_mfcc = accuracy_calc(
+            torch.Tensor(prediction_1_mfcc).to(device), y_1
+        )
+        accuracy_instrument_mfcc = accuracy_calc(
+            torch.Tensor(prediction_2_mfcc).to(device), y_2
+        )
+
+        accuracy_combined = accuracy_calc(
+            torch.Tensor(y_pred_2_combined).to(device), y_2
+        )
+
         for value in instruments_group_short.values():
             self.training_step_preds_family[value] = 0
             self.training_step_target_family[value] = 0
+            self.training_step_preds_family_mfcc[value] = 0
+            self.training_step_target_family_mfcc[value] = 0
 
         for value in instruments_short.values():
             value = instruments[value]
             self.training_step_preds_instruments[value] = 0
             self.training_step_target_instruments[value] = 0
+            self.training_step_preds_instruments_mfcc[value] = 0
+            self.training_step_target_instruments_mfcc[value] = 0
 
         tensor_true1 = y_1.cpu().numpy()
         tensor_predicted1 = prediction_1.cpu().detach().numpy()
-        for i in range(len(tensor_true1)):
-            for j in range(len(tensor_true1[i])):
-                if tensor_true1[i][j] == 1:
-                    if tensor_predicted1[i][j] >= 0.5:
-                        self.training_step_preds_family[
-                            instruments_group_short[j + 1]
-                        ] += 1
-                    self.training_step_target_family[
-                        instruments_group_short[j + 1]
-                    ] += 1
-
         tensor_true2 = y_2.cpu().numpy()
         tensor_predicted2 = prediction_2.cpu().detach().numpy()
-        for i in range(len(tensor_true2)):
-            for j in range(len(tensor_true2[i])):
-                if tensor_true2[i][j] == 1:
-                    if tensor_predicted2[i][j] >= 0.5:
-                        self.training_step_preds_instruments[
-                            instruments[instruments_short[j + 1]]
-                        ] += 1
-                    self.training_step_target_instruments[
-                        instruments[instruments_short[j + 1]]
-                    ] += 1
+
+        tensor_predicted1_mfcc = prediction_1_mfcc.cpu().detach().numpy()
+        tensor_predicted2_mfcc = prediction_2_mfcc.cpu().detach().numpy()
+
+        populate_table(
+            tensor_true1,
+            tensor_predicted1_mfcc,
+            self.training_step_preds_family_mfcc,
+            instruments_group_short,
+        )
+        populate_table(
+            tensor_true1,
+            tensor_predicted1_mfcc,
+            self.training_step_target_family_mfcc,
+            instruments_group_short,
+        )
+
+        populate_table(
+            tensor_true2,
+            tensor_predicted2_mfcc,
+            self.training_step_preds_instruments_mfcc,
+            instruments,
+            instruments_short,
+        )
+        populate_table(
+            tensor_true2,
+            tensor_predicted2_mfcc,
+            self.training_step_target_instruments_mfcc,
+            instruments,
+            instruments_short,
+        )
+
+        populate_table(
+            tensor_true1,
+            tensor_predicted1,
+            self.training_step_preds_family,
+            instruments_group_short,
+        )
+        populate_table(
+            tensor_true1,
+            tensor_predicted1,
+            self.training_step_target_family,
+            instruments_group_short,
+        )
+
+        populate_table(
+            tensor_true2,
+            tensor_predicted2,
+            self.training_step_preds_instruments,
+            instruments,
+            instruments_short,
+        )
+        populate_table(
+            tensor_true2,
+            tensor_predicted2,
+            self.training_step_target_instruments,
+            instruments,
+            instruments_short,
+        )
 
         return (
             loss_family,
@@ -146,11 +221,24 @@ class Module(pl.LightningModule):
             recall_instruments,
             f1_family,
             f1_instruments,
+            loss_family_mfcc,
+            loss_instruments_mfcc,
+            accuracy_mfcc,
+            accuracy_family_mfcc,
+            accuracy_instrument_mfcc,
+            precision_family_mfcc,
+            precision_instruments_mfcc,
+            recall_family_mfcc,
+            recall_instruments_mfcc,
+            f1_family_mfcc,
+            f1_instruments_mfcc,
+            accuracy_combined,
         )
 
     def training_step(self, batch):
-        segments, labels_family, labels_instruments = (
+        segments, segments_mfcc, labels_family, labels_instruments = (
             batch["segments"],
+            batch["segments_mfcc"],
             batch["labels_family"],
             batch["labels_instruments"],
         )
@@ -166,24 +254,53 @@ class Module(pl.LightningModule):
             recall_instruments,
             f1_family,
             f1_instruments,
-        ) = self.step(segments, labels_family, labels_instruments)
+            loss_family_mfcc,
+            loss_instruments_mfcc,
+            accuracy_mfcc,
+            accuracy_family_mfcc,
+            accuracy_instrument_mfcc,
+            precision_family_mfcc,
+            precision_instruments_mfcc,
+            recall_family_mfcc,
+            recall_instruments_mfcc,
+            f1_family_mfcc,
+            f1_instruments_mfcc,
+            accuracy_combined,
+        ) = self.step(segments, segments_mfcc, labels_family, labels_instruments)
 
         self.log("accuracy", accuracy, prog_bar=True)
-        self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
-        self.log("accuracy_family", accuracy_family, prog_bar=True)
-        self.log("precision_family", precision_family, prog_bar=True)
-        self.log("precision_instruments", precision_instruments, prog_bar=True)
-        self.log("recall_family", recall_family, prog_bar=True)
-        self.log("recall_instruments", recall_instruments, prog_bar=True)
-        self.log("F1_family", f1_family, prog_bar=True)
-        self.log("F1_instruments", f1_instruments, prog_bar=True)
+        # self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
+        # self.log("accuracy_family", accuracy_family, prog_bar=True)
+        # self.log("precision_family", precision_family, prog_bar=True)
+        # self.log("precision_instruments", precision_instruments, prog_bar=True)
+        # self.log("recall_family", recall_family, prog_bar=True)
+        # self.log("recall_instruments", recall_instruments, prog_bar=True)
+        # self.log("F1_family", f1_family, prog_bar=True)
+        # self.log("F1_instruments", f1_instruments, prog_bar=True)
+
+        self.log("accuracy_mfcc", accuracy_mfcc, prog_bar=True)
+        # self.log("accuracy_instrument_mfcc", accuracy_instrument_mfcc, prog_bar=True)
+        # self.log("accuracy_family_mfcc", accuracy_family_mfcc, prog_bar=True)
+        # self.log("precision_family_mfcc", precision_family_mfcc, prog_bar=True)
+        # self.log(
+        #     "precision_instruments_mfcc", precision_instruments_mfcc, prog_bar=True
+        # )
+        # self.log("recall_family_mfcc", recall_family_mfcc, prog_bar=True)
+        # self.log("recall_instruments_mfcc", recall_instruments_mfcc, prog_bar=True)
+        # self.log("F1_family_mfcc", f1_family_mfcc, prog_bar=True)
+        # self.log("F1_instruments_mfcc", f1_instruments_mfcc, prog_bar=True)
+        self.log("accuracy_combined", accuracy_combined, prog_bar=True)
         return {
-            "loss": loss_family + loss_instruments,
+            "loss": loss_family
+            + loss_instruments
+            + loss_family_mfcc
+            + loss_instruments_mfcc,
         }
 
     def test_step(self, batch, batch_idx):
-        segments, labels_family, labels_instruments = (
+        segments, segments_mfcc, labels_family, labels_instruments = (
             batch["segments"],
+            batch["segments_mfcc"],
             batch["labels_family"],
             batch["labels_instruments"],
         )
@@ -199,18 +316,47 @@ class Module(pl.LightningModule):
             recall_instruments,
             f1_family,
             f1_instruments,
-        ) = self.step(segments, labels_family, labels_instruments)
+            loss_family_mfcc,
+            loss_instruments_mfcc,
+            accuracy_mfcc,
+            accuracy_family_mfcc,
+            accuracy_instrument_mfcc,
+            precision_family_mfcc,
+            precision_instruments_mfcc,
+            recall_family_mfcc,
+            recall_instruments_mfcc,
+            f1_family_mfcc,
+            f1_instruments_mfcc,
+            accuracy_combined,
+        ) = self.step(segments, segments_mfcc, labels_family, labels_instruments)
+
         self.log("accuracy", accuracy, prog_bar=True)
-        self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
-        self.log("accuracy_family", accuracy_family, prog_bar=True)
-        self.log("precision_family", precision_family, prog_bar=True)
-        self.log("precision_instruments", precision_instruments, prog_bar=True)
-        self.log("recall_family", recall_family, prog_bar=True)
-        self.log("recall_instruments", recall_instruments, prog_bar=True)
-        self.log("F1_family", f1_family, prog_bar=True)
-        self.log("F1_instruments", f1_instruments, prog_bar=True)
+        # self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
+        # self.log("accuracy_family", accuracy_family, prog_bar=True)
+        # self.log("precision_family", precision_family, prog_bar=True)
+        # self.log("precision_instruments", precision_instruments, prog_bar=True)
+        # self.log("recall_family", recall_family, prog_bar=True)
+        # self.log("recall_instruments", recall_instruments, prog_bar=True)
+        # self.log("F1_family", f1_family, prog_bar=True)
+        # self.log("F1_instruments", f1_instruments, prog_bar=True)
+
+        self.log("accuracy_mfcc", accuracy_mfcc, prog_bar=True)
+        # self.log("accuracy_instrument_mfcc", accuracy_instrument_mfcc, prog_bar=True)
+        # self.log("accuracy_family_mfcc", accuracy_family_mfcc, prog_bar=True)
+        # self.log("precision_family_mfcc", precision_family_mfcc, prog_bar=True)
+        # self.log(
+        #     "precision_instruments_mfcc", precision_instruments_mfcc, prog_bar=True
+        # )
+        # self.log("recall_family_mfcc", recall_family_mfcc, prog_bar=True)
+        # self.log("recall_instruments_mfcc", recall_instruments_mfcc, prog_bar=True)
+        # self.log("F1_family_mfcc", f1_family_mfcc, prog_bar=True)
+        # self.log("F1_instruments_mfcc", f1_instruments_mfcc, prog_bar=True)
+        self.log("accuracy_combined", accuracy_combined, prog_bar=True)
         return {
-            "loss": loss_family + loss_instruments,
+            "loss": loss_family
+            + loss_instruments
+            + loss_family_mfcc
+            + loss_instruments_mfcc,
         }
 
     def configure_optimizers(self):
@@ -230,17 +376,19 @@ class Module(pl.LightningModule):
         for key in self.training_step_target_family:
             dict1[key] = [
                 self.training_step_preds_family[key],
+                self.training_step_preds_family_mfcc[key],
                 self.training_step_target_family[key],
             ]
 
         for key in self.training_step_target_instruments:
             dict2[key] = [
                 self.training_step_preds_instruments[key],
+                self.training_step_preds_instruments_mfcc[key],
                 self.training_step_target_instruments[key],
             ]
 
-        df1 = pd.DataFrame(dict1, index=["predicted", "true"])
-        df2 = pd.DataFrame(dict2, index=["predicted", "true"])
+        df1 = pd.DataFrame(dict1, index=["predicted_melspec", "predicted_mfcc", "true"])
+        df2 = pd.DataFrame(dict2, index=["predicted_melspec", "predicted_mfcc", "true"])
         print(df1)
         print(df2)
 
@@ -249,16 +397,48 @@ class Module(pl.LightningModule):
         self.training_step_preds_instruments.clear()  # free memory
         self.training_step_target_family.clear()  # free memory
 
-    def score_level_fusion(self, prediction_family, prediction_instruments):
+    def score_level_fusion(
+        self,
+        prediction_family,
+        prediction_instruments,
+        prediction_family_mfcc,
+        prediction_instruments_mfcc,
+    ):
+        # only melspec
+        boosted_instruments = self.predict_instruments_p1(prediction_family)
+
+        y_pred_2 = self.predict_instruments_p2(
+            prediction_instruments, boosted_instruments
+        )
+
+        # only mfcc
+        boosted_instruments_mfcc = self.predict_instruments_p1(prediction_family_mfcc)
+
+        y_pred_2_mfcc = self.predict_instruments_p2(
+            prediction_instruments_mfcc, boosted_instruments_mfcc
+        )
+
+        # combined
+        boosted_instruments_combined = self.combine(
+            mfcc=boosted_instruments_mfcc, melspec=boosted_instruments
+        )
+
+        prediction_instruments_combined = self.combine(
+            melspec=prediction_instruments, mfcc=prediction_family_mfcc
+        )
+
+        y_pred_2_combined = self.predict_instruments_p2(
+            prediction_instruments_combined, boosted_instruments_combined
+        )
+
+        return y_pred_2, y_pred_2_mfcc, y_pred_2_combined
+
+    def predict_instruments_p1(self, prediction_family):
         y_pred_1 = []
 
         prediction_1 = prediction_family
         for sample in prediction_1:
             y_pred_1.append([1 if i >= 1e-01 else 0 for i in sample])
-
-        y_pred_2 = []
-
-        prediction_2 = prediction_instruments
 
         decoded_y_pred_1 = []
         for prediction in y_pred_1:
@@ -299,6 +479,13 @@ class Module(pl.LightningModule):
             else:
                 boosted_instruments.append([])
 
+        return boosted_instruments  # most probable instruments based on family
+
+    def predict_instruments_p2(self, prediction_instruments, boosted_instruments):
+        y_pred_2 = []
+
+        prediction_2 = prediction_instruments
+
         for index in range(len(prediction_2)):
             predicted_instruments = prediction_2[index].cpu().detach().numpy()
             predicted_instruments_partial = []
@@ -331,6 +518,21 @@ class Module(pl.LightningModule):
                 if len(predicted_instruments_partial) == 11:
                     y_pred_2.append(predicted_instruments_partial)
 
-        return y_pred_2, y_pred_1
+        return y_pred_2  # predicted instruments compared with previous prediction
 
-    # def accuracy_whole(self):
+    def combine(self, melspec, mfcc):
+        result = []
+        for index in range(len(melspec)):
+            print(type(melspec[index]))
+            print(type(mfcc[index]))
+
+            # melspec = np.concatenate(np.array(melspec[index]).flatten())
+            # mfcc = np.concatenate(np.array(mfcc[index]).flatten())
+            # print(melspec)
+            # print(mfcc)
+            # combined_array = np.concatenate(melspec, mfcc)
+            # unique_values = np.unique(combined_array)
+            # result.append(unique_values)
+
+        print(result)
+        return result

@@ -1,12 +1,9 @@
 from module import Module
-from cnn import Net as CNN
-from rnn import DefaultRNN as RNN
+from cnn import DefaultCNN as CNN
+from lstm import DefaultLSTM as LSTM
 from labels import prepare_labels, prepare_labels_short
 
 import pytorch_lightning as pl
-import os
-import torch
-import numpy as np
 
 
 def training(case):
@@ -14,10 +11,10 @@ def training(case):
     true_labels_family = prepare_labels_short(0)
 
     learner = Module(
-        # model_family=CNN(4, case),
-        # model_instruments=CNN(11, case),
-        model_family=RNN(num_classes=4, input_size=11, hidden_size=128),
-        model_instruments=RNN(num_classes=11, input_size=11, hidden_size=128),
+        model_family=CNN(4),
+        model_instruments=CNN(11),
+        # model_family=LSTM(num_classes=4, input_size=11, hidden_size=128),
+        # model_instruments=LSTM(num_classes=11, input_size=11, hidden_size=128),
         true_labels_instruments=true_labels_instruments,
         true_labels_family=true_labels_family,
         variant=case,
