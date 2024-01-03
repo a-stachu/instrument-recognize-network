@@ -269,26 +269,26 @@ class Module(pl.LightningModule):
         ) = self.step(segments, segments_mfcc, labels_family, labels_instruments)
 
         self.log("accuracy", accuracy, prog_bar=True)
-        # self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
-        # self.log("accuracy_family", accuracy_family, prog_bar=True)
-        # self.log("precision_family", precision_family, prog_bar=True)
-        # self.log("precision_instruments", precision_instruments, prog_bar=True)
-        # self.log("recall_family", recall_family, prog_bar=True)
-        # self.log("recall_instruments", recall_instruments, prog_bar=True)
-        # self.log("F1_family", f1_family, prog_bar=True)
-        # self.log("F1_instruments", f1_instruments, prog_bar=True)
+        self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
+        self.log("accuracy_family", accuracy_family, prog_bar=True)
+        self.log("precision_family", precision_family, prog_bar=True)
+        self.log("precision_instruments", precision_instruments, prog_bar=True)
+        self.log("recall_family", recall_family, prog_bar=True)
+        self.log("recall_instruments", recall_instruments, prog_bar=True)
+        self.log("F1_family", f1_family, prog_bar=True)
+        self.log("F1_instruments", f1_instruments, prog_bar=True)
 
         self.log("accuracy_mfcc", accuracy_mfcc, prog_bar=True)
-        # self.log("accuracy_instrument_mfcc", accuracy_instrument_mfcc, prog_bar=True)
-        # self.log("accuracy_family_mfcc", accuracy_family_mfcc, prog_bar=True)
-        # self.log("precision_family_mfcc", precision_family_mfcc, prog_bar=True)
-        # self.log(
-        #     "precision_instruments_mfcc", precision_instruments_mfcc, prog_bar=True
-        # )
-        # self.log("recall_family_mfcc", recall_family_mfcc, prog_bar=True)
-        # self.log("recall_instruments_mfcc", recall_instruments_mfcc, prog_bar=True)
-        # self.log("F1_family_mfcc", f1_family_mfcc, prog_bar=True)
-        # self.log("F1_instruments_mfcc", f1_instruments_mfcc, prog_bar=True)
+        self.log("accuracy_instrument_mfcc", accuracy_instrument_mfcc, prog_bar=True)
+        self.log("accuracy_family_mfcc", accuracy_family_mfcc, prog_bar=True)
+        self.log("precision_family_mfcc", precision_family_mfcc, prog_bar=True)
+        self.log(
+            "precision_instruments_mfcc", precision_instruments_mfcc, prog_bar=True
+        )
+        self.log("recall_family_mfcc", recall_family_mfcc, prog_bar=True)
+        self.log("recall_instruments_mfcc", recall_instruments_mfcc, prog_bar=True)
+        self.log("F1_family_mfcc", f1_family_mfcc, prog_bar=True)
+        self.log("F1_instruments_mfcc", f1_instruments_mfcc, prog_bar=True)
         self.log("accuracy_combined", accuracy_combined, prog_bar=True)
         return {
             "loss": loss_family
@@ -331,26 +331,26 @@ class Module(pl.LightningModule):
         ) = self.step(segments, segments_mfcc, labels_family, labels_instruments)
 
         self.log("accuracy", accuracy, prog_bar=True)
-        # self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
-        # self.log("accuracy_family", accuracy_family, prog_bar=True)
-        # self.log("precision_family", precision_family, prog_bar=True)
-        # self.log("precision_instruments", precision_instruments, prog_bar=True)
-        # self.log("recall_family", recall_family, prog_bar=True)
-        # self.log("recall_instruments", recall_instruments, prog_bar=True)
-        # self.log("F1_family", f1_family, prog_bar=True)
-        # self.log("F1_instruments", f1_instruments, prog_bar=True)
+        self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
+        self.log("accuracy_family", accuracy_family, prog_bar=True)
+        self.log("precision_family", precision_family, prog_bar=True)
+        self.log("precision_instruments", precision_instruments, prog_bar=True)
+        self.log("recall_family", recall_family, prog_bar=True)
+        self.log("recall_instruments", recall_instruments, prog_bar=True)
+        self.log("F1_family", f1_family, prog_bar=True)
+        self.log("F1_instruments", f1_instruments, prog_bar=True)
 
         self.log("accuracy_mfcc", accuracy_mfcc, prog_bar=True)
-        # self.log("accuracy_instrument_mfcc", accuracy_instrument_mfcc, prog_bar=True)
-        # self.log("accuracy_family_mfcc", accuracy_family_mfcc, prog_bar=True)
-        # self.log("precision_family_mfcc", precision_family_mfcc, prog_bar=True)
-        # self.log(
-        #     "precision_instruments_mfcc", precision_instruments_mfcc, prog_bar=True
-        # )
-        # self.log("recall_family_mfcc", recall_family_mfcc, prog_bar=True)
-        # self.log("recall_instruments_mfcc", recall_instruments_mfcc, prog_bar=True)
-        # self.log("F1_family_mfcc", f1_family_mfcc, prog_bar=True)
-        # self.log("F1_instruments_mfcc", f1_instruments_mfcc, prog_bar=True)
+        self.log("accuracy_instrument_mfcc", accuracy_instrument_mfcc, prog_bar=True)
+        self.log("accuracy_family_mfcc", accuracy_family_mfcc, prog_bar=True)
+        self.log("precision_family_mfcc", precision_family_mfcc, prog_bar=True)
+        self.log(
+            "precision_instruments_mfcc", precision_instruments_mfcc, prog_bar=True
+        )
+        self.log("recall_family_mfcc", recall_family_mfcc, prog_bar=True)
+        self.log("recall_instruments_mfcc", recall_instruments_mfcc, prog_bar=True)
+        self.log("F1_family_mfcc", f1_family_mfcc, prog_bar=True)
+        self.log("F1_instruments_mfcc", f1_instruments_mfcc, prog_bar=True)
         self.log("accuracy_combined", accuracy_combined, prog_bar=True)
         return {
             "loss": loss_family
@@ -397,6 +397,11 @@ class Module(pl.LightningModule):
         self.training_step_preds_instruments.clear()  # free memory
         self.training_step_target_family.clear()  # free memory
 
+        self.training_step_preds_instruments_mfcc.clear()
+        self.training_step_target_instruments_mfcc.clear()
+        self.training_step_preds_family_mfcc.clear()
+        self.training_step_target_family_mfcc.clear()
+
     def score_level_fusion(
         self,
         prediction_family,
@@ -424,7 +429,7 @@ class Module(pl.LightningModule):
         )
 
         prediction_instruments_combined = self.combine(
-            melspec=prediction_instruments, mfcc=prediction_family_mfcc
+            mfcc=prediction_instruments_mfcc, melspec=prediction_instruments
         )
 
         y_pred_2_combined = self.predict_instruments_p2(
@@ -477,7 +482,7 @@ class Module(pl.LightningModule):
                     else:
                         boosted_instruments.append(np.unique(result))
             else:
-                boosted_instruments.append([])
+                boosted_instruments.append(np.array([]))
 
         return boosted_instruments  # most probable instruments based on family
 
@@ -485,6 +490,8 @@ class Module(pl.LightningModule):
         y_pred_2 = []
 
         prediction_2 = prediction_instruments
+
+        # print(prediction_instruments, boosted_instruments)
 
         for index in range(len(prediction_2)):
             predicted_instruments = prediction_2[index].cpu().detach().numpy()
@@ -522,17 +529,27 @@ class Module(pl.LightningModule):
 
     def combine(self, melspec, mfcc):
         result = []
+
         for index in range(len(melspec)):
-            print(type(melspec[index]))
-            print(type(mfcc[index]))
+            try:
+                combined_array = np.concatenate(
+                    (melspec[index].flatten(), mfcc[index].flatten())
+                )
+            except IndexError as e:
+                if "index 2 is out of bounds for dimension 0 with size 1" in str(e):
+                    print("XXX")
+                    empty_array = np.array([], dtype=np.float64)
+                    if np.array_equal(melspec, empty_array):
+                        combined_array = mfcc
+                    else:
+                        combined_array = melspec
+                    result.append(np.unique(combined_array))
+                else:
+                    result.append(np.unique(combined_array))
+            except TypeError as e:
+                mean_tensor = melspec + mfcc / 2
+                result = mean_tensor
+            else:
+                result.append(np.unique(combined_array))
 
-            # melspec = np.concatenate(np.array(melspec[index]).flatten())
-            # mfcc = np.concatenate(np.array(mfcc[index]).flatten())
-            # print(melspec)
-            # print(mfcc)
-            # combined_array = np.concatenate(melspec, mfcc)
-            # unique_values = np.unique(combined_array)
-            # result.append(unique_values)
-
-        print(result)
         return result
