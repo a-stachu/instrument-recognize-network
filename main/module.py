@@ -537,7 +537,6 @@ class Module(pl.LightningModule):
                 )
             except IndexError as e:
                 if "index 2 is out of bounds for dimension 0 with size 1" in str(e):
-                    print("XXX")
                     empty_array = np.array([], dtype=np.float64)
                     if np.array_equal(melspec, empty_array):
                         combined_array = mfcc

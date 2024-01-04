@@ -1,5 +1,6 @@
 from module import Module
-from cnn import DefaultCNN as CNN
+from cnn import SimpleCNN as CNN
+from rnn import DefaultRNN as RNN
 from lstm import DefaultLSTM as LSTM
 from labels import prepare_labels, prepare_labels_short
 
@@ -10,11 +11,21 @@ def training(case):
     true_labels_instruments = prepare_labels_short(1)
     true_labels_family = prepare_labels_short(0)
 
+    # RNN + LSTM
+    if case == 1000:
+        input_size = 101
+    if case == 100:
+        input_size = 11
+    if case == 10:
+        input_size = 2
+
     learner = Module(
-        model_family=CNN(4),
-        model_instruments=CNN(11),
-        # model_family=LSTM(num_classes=4, input_size=11, hidden_size=128),
-        # model_instruments=LSTM(num_classes=11, input_size=11, hidden_size=128),
+        # model_family=CNN(4, case),
+        # model_instruments=CNN(11, case),
+        # model_family=RNN(num_classes=4, input_size=input_size, hidden_size=128),
+        # model_instruments=RNN(num_classes=11, input_size=input_size, hidden_size=128),
+        model_family=LSTM(num_classes=4, input_size=input_size, hidden_size=128),
+        model_instruments=LSTM(num_classes=11, input_size=input_size, hidden_size=128),
         true_labels_instruments=true_labels_instruments,
         true_labels_family=true_labels_family,
         variant=case,
@@ -36,7 +47,7 @@ checkpoint = pl.callbacks.ModelCheckpoint(
 trainer = pl.Trainer(
     accelerator="gpu",
     devices=1,
-    max_epochs=10,
+    max_epochs=1,
     callbacks=[checkpoint],
     check_val_every_n_epoch=1,
     # logger=logger,
@@ -45,7 +56,6 @@ trainer = pl.Trainer(
 
 
 # [ 1000 = 1 [sec] | 100 = 100 [ms] | 10 = 10 [ms] ]
-# training(1000)
-# training(100)
-training(100)
+
+training(10)
 test(trainer)

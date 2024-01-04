@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 
 class SimpleCNN(nn.Module):
@@ -25,9 +26,9 @@ class SimpleCNN(nn.Module):
         if case == 10:
             mat2 = 2048
 
-        self.fc1 = nn.Linear(mat2, 11)
+        self.fc1 = nn.Linear(mat2, 128)
         self.relu3 = nn.ReLU()
-        self.fc2 = nn.Linear(11, num_classes)
+        self.fc2 = nn.Linear(128, num_classes)
 
     def forward(self, x):
         # print(x.shape)
@@ -54,9 +55,9 @@ class SimpleCNN(nn.Module):
 
 
 class DefaultCNN(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, case):
         super(DefaultCNN, self).__init__()
-
+        self.case = case
         self.conv1 = nn.Sequential(
             nn.Conv2d(
                 in_channels=1, out_channels=64, kernel_size=3, stride=1, padding=1
@@ -73,9 +74,12 @@ class DefaultCNN(nn.Module):
             ),
             nn.ReLU(),
             nn.BatchNorm2d(128),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Dropout(0.3),
         )
+
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool2 = nn.MaxPool2d(kernel_size=1, stride=2)
+
+        self.dp1 = nn.Dropout(0.3)
 
         self.conv3 = nn.Sequential(
             nn.Conv2d(
@@ -83,12 +87,18 @@ class DefaultCNN(nn.Module):
             ),
             nn.ReLU(),
             nn.BatchNorm2d(256),
-            nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Dropout(0.3),
         )
 
+        if case == 1000:
+            mat2 = 102400
+        if case == 100:
+            mat2 = 8192
+        if case == 10:
+            mat2 = 4096
+
         self.ln1 = nn.Sequential(
-            nn.Linear(2048, 128), nn.BatchNorm1d(128), nn.Dropout(0.5)
+            nn.Linear(mat2, 128), nn.BatchNorm1d(128), nn.Dropout(0.5)
         )
 
         self.ln2 = nn.Sequential(
@@ -102,6 +112,11 @@ class DefaultCNN(nn.Module):
         x = self.conv1(x)
         # print(x.shape)
         x = self.conv2(x)
+        if self.case == 1000 or self.case == 100:
+            x = self.pool1(x)
+        else:
+            x = self.pool2(x)
+        x = self.dp1(x)
         # print(x.shape)
         x = self.conv3(x)
         # print(x.shape)
