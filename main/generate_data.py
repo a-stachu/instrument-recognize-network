@@ -58,28 +58,24 @@ mfcc_transform = torchaudio.transforms.MFCC(
 # print(len(train_labels[0]))  # how many train labels
 
 for index, filename in enumerate(train_files):
-    file_path = os.path.join(main_path, train_files[0])
+    file_path = os.path.join(main_path, train_files[index])
     waveform, sample_rate = torchaudio.load(file_path)
 
     for x in range(int(convert(waveform.shape[1]) / 10)):  # for 1/100 [sec]
-        sample = 441 * 100  # 10 [ms]  = 1/100 [sec]
+        sample = 441  # 10 [ms]  = 1/100 [sec]
         start_sample = sample * x
-        end_sample = sample * x + sample  # 513 for 10 [ms]
+        end_sample = sample * x + 513  # 513 for 10 [ms]
         if end_sample > waveform.shape[1]:
             break
-        # mel_spectrogram = mel_transform(waveform[:, start_sample:end_sample])
-        # mel_spectrogram_db = torchaudio.transforms.AmplitudeToDB()(mel_spectrogram)
-        mfcc = mfcc_transform(waveform[:, start_sample:end_sample])
-        mfcc_db = torchaudio.transforms.AmplitudeToDB()(mfcc)
+        mel_spectrogram = mel_transform(waveform[:, start_sample:end_sample])
+        mel_spectrogram_db = torchaudio.transforms.AmplitudeToDB()(mel_spectrogram)
+        # mfcc = mfcc_transform(waveform[:, start_sample:end_sample])
+        # mfcc_db = torchaudio.transforms.AmplitudeToDB()(mfcc)
 
         name = os.path.splitext(filename)[0] + f"_{x}" + ".npy"
-        folder_path = "G:/data/test_data_npy_100_mfcc/" + os.path.splitext(filename)[0]
+        folder_path = "G:/data/test_data_npy/" + os.path.splitext(filename)[0]
         if not os.path.exists(folder_path):
             os.mkdir(folder_path)
-        path = (
-            "G:/data/test_data_npy_100_mfcc/"
-            + os.path.splitext(filename)[0]
-            + f"/{name}"
-        )
+        path = "G:/data/test_data_npy/" + os.path.splitext(filename)[0] + f"/{name}"
         if not os.path.exists(path):
-            np.save(path, mfcc_db)
+            np.save(path, mel_spectrogram_db)

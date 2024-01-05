@@ -1,4 +1,5 @@
 import math
+import os
 
 
 def convert(data):
@@ -27,3 +28,14 @@ def populate_table(tensor_true, tensor_predicted, data, instruments, expanded=No
                         data[instruments[expanded[j + 1]]] += 1
                     else:
                         data[instruments[j + 1]] += 1
+
+
+def list_files_in_subdirectories(directory):
+    file_list = []
+
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            file_list.append(file_path)
+
+    return file_list
