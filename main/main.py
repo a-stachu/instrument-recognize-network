@@ -5,6 +5,7 @@ from lstm import DefaultLSTM
 from labels import prepare_labels, prepare_labels_short
 
 import pytorch_lightning as pl
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
 NUM_EPOCHS = 20
 
@@ -52,11 +53,21 @@ def test(trainer):
 checkpoint = pl.callbacks.ModelCheckpoint(
     dirpath="./checkpoints", every_n_epochs=1, save_top_k=-1
 )
+
+early_stop_callback = EarlyStopping(
+    monitor="accuracy_combined",
+    min_delta=0.01,
+    verbose=False,
+    mode="max",
+    divergence_threshold=0.5,
+    stopping_threshold=0.6,
+)
+
 trainer = pl.Trainer(
     accelerator="gpu",
     devices=1,
     max_epochs=NUM_EPOCHS,
-    callbacks=[checkpoint],
+    callbacks=[checkpoint, early_stop_callback],
     check_val_every_n_epoch=1,
     # logger=logger,
     # log_every_n_steps=50,
