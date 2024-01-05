@@ -522,23 +522,6 @@ class Module(pl.LightningModule):
                 self.training_step_target_instruments[key],
             ]
 
-        df1 = pd.DataFrame(
-            self.dict1, index=["predicted_melspec", "predicted_mfcc", "true"]
-        )
-        df2 = pd.DataFrame(
-            self.dict2, index=["predicted_melspec", "predicted_mfcc", "true"]
-        )
-        print(df1)
-        print(df2)
-
-        df1.to_csv(
-            f"TRAINING_{self.variant}_{self.num_epochs}_family_{type(self.model_family).__name__}_table.csv"
-        )
-
-        df2.to_csv(
-            f"TRAINING_{self.variant}_{self.num_epochs}_instruments_{type(self.model_instruments).__name__}_table.csv"
-        )
-
         # ------------------------ [TRENING]
         self.arr_train_loss_family.append(self.temporary[0])
         self.arr_train_loss_instruments.append(self.temporary[1])
@@ -567,45 +550,6 @@ class Module(pl.LightningModule):
         self.arr_train_accuracy.append(self.temporary[20])
         self.arr_train_accuracy_mfcc.append(self.temporary[21])
         self.arr_train_accuracy_combined.append(self.temporary[22])
-
-        if self.epoch == self.num_epochs:
-            df3 = pd.DataFrame(
-                {
-                    "train_loss_family": self.arr_train_loss_family,
-                    "train_loss_instruments": self.arr_train_loss_instruments,
-                    "train_loss_family_mfcc": self.arr_train_loss_family_mfcc,
-                    "train_loss_instruments_mfcc": self.arr_train_loss_instruments_mfcc,
-                    "train_precision_family": self.arr_train_precision_family,
-                    "train_precision_instruments": self.arr_train_precision_instruments,
-                    "train_precision_family_mfcc": self.arr_train_precision_family_mfcc,
-                    "train_precision_instruments_mfcc": self.arr_train_precision_instruments_mfcc,
-                    "train_recall_family": self.arr_train_recall_family,
-                    "train_recall_instruments": self.arr_train_recall_instruments,
-                    "train_recall_family_mfcc": self.arr_train_recall_family_mfcc,
-                    "train_recall_instruments_mfcc": self.arr_train_recall_instruments_mfcc,
-                    "train_f1_family": self.arr_train_f1_family,
-                    "train_f1_instruments": self.arr_train_f1_instruments,
-                    "train_f1_family_mfcc": self.arr_train_f1_family_mfcc,
-                    "train_f1_instruments_mfcc": self.arr_train_f1_instruments_mfcc,
-                    "train_accuracy_family": self.arr_train_accuracy_family,
-                    "train_accuracy_instruments": self.arr_train_accuracy_instruments,
-                    "train_accuracy_family_mfcc": self.arr_train_accuracy_family_mfcc,
-                    "train_accuracy_instruments_mfcc": self.arr_train_accuracy_instruments_mfcc,
-                    "train_accuracy": self.arr_train_accuracy,
-                    "train_accuracy_mfcc": self.arr_train_accuracy_mfcc,
-                    "train_accuracy_combined": self.arr_train_accuracy_combined,
-                }
-            )
-
-            index_labels = []
-            for i in range(len(df3)):
-                index_labels.append(f"EPOCH_{i + 1}")
-
-            # Assign the index to the DataFrame
-            df3.index = index_labels
-            df3.to_csv(
-                f"TRAINING_{self.variant}_{self.num_epochs}_family_{type(self.model_family).__name__}_instruments_{type(self.model_instruments).__name__}.csv"
-            )
 
         self.temporary.clear()
 
@@ -771,3 +715,55 @@ class Module(pl.LightningModule):
                 result.append(np.unique(combined_array))
 
         return result
+
+    def on_train_end(self):
+        df1 = pd.DataFrame(
+            self.dict1, index=["predicted_melspec", "predicted_mfcc", "true"]
+        )
+        df2 = pd.DataFrame(
+            self.dict2, index=["predicted_melspec", "predicted_mfcc", "true"]
+        )
+        df1.to_csv(
+            f"TRAINING_{self.variant}_{self.num_epochs}_family_{type(self.model_family).__name__}_table.csv"
+        )
+
+        df2.to_csv(
+            f"TRAINING_{self.variant}_{self.num_epochs}_instruments_{type(self.model_instruments).__name__}_table.csv"
+        )
+
+        df3 = pd.DataFrame(
+            {
+                "train_loss_family": self.arr_train_loss_family,
+                "train_loss_instruments": self.arr_train_loss_instruments,
+                "train_loss_family_mfcc": self.arr_train_loss_family_mfcc,
+                "train_loss_instruments_mfcc": self.arr_train_loss_instruments_mfcc,
+                "train_precision_family": self.arr_train_precision_family,
+                "train_precision_instruments": self.arr_train_precision_instruments,
+                "train_precision_family_mfcc": self.arr_train_precision_family_mfcc,
+                "train_precision_instruments_mfcc": self.arr_train_precision_instruments_mfcc,
+                "train_recall_family": self.arr_train_recall_family,
+                "train_recall_instruments": self.arr_train_recall_instruments,
+                "train_recall_family_mfcc": self.arr_train_recall_family_mfcc,
+                "train_recall_instruments_mfcc": self.arr_train_recall_instruments_mfcc,
+                "train_f1_family": self.arr_train_f1_family,
+                "train_f1_instruments": self.arr_train_f1_instruments,
+                "train_f1_family_mfcc": self.arr_train_f1_family_mfcc,
+                "train_f1_instruments_mfcc": self.arr_train_f1_instruments_mfcc,
+                "train_accuracy_family": self.arr_train_accuracy_family,
+                "train_accuracy_instruments": self.arr_train_accuracy_instruments,
+                "train_accuracy_family_mfcc": self.arr_train_accuracy_family_mfcc,
+                "train_accuracy_instruments_mfcc": self.arr_train_accuracy_instruments_mfcc,
+                "train_accuracy": self.arr_train_accuracy,
+                "train_accuracy_mfcc": self.arr_train_accuracy_mfcc,
+                "train_accuracy_combined": self.arr_train_accuracy_combined,
+            }
+        )
+
+        index_labels = []
+        for i in range(len(df3)):
+            index_labels.append(i + 1)
+
+        df3.index = index_labels
+        df3.to_csv(
+            f"TRAINING_{self.variant}_{self.num_epochs}_family_{type(self.model_family).__name__}_instruments_{type(self.model_instruments).__name__}.csv"
+        )
