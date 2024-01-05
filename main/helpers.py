@@ -19,11 +19,22 @@ def count_record_time(data, case):
     return value
 
 
-def populate_table(tensor_true, tensor_predicted, data, instruments, expanded=None):
+def populate_table(
+    tensor_true,
+    tensor_predicted,
+    data,
+    instruments,
+    threshold,
+    expanded=None,
+):
     for i in range(len(tensor_true)):
         for j in range(len(tensor_true[i])):
             if tensor_true[i][j] == 1:
-                if 1 >= tensor_predicted[i][j] >= 0.5:
+                if tensor_predicted[i][j] >= threshold:
+                    classification = 1
+                else:
+                    classification = 0
+                if classification or threshold == 0:
                     if expanded:
                         data[instruments[expanded[j + 1]]] += 1
                     else:
