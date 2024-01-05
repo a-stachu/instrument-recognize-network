@@ -227,12 +227,14 @@ class Module(pl.LightningModule):
             tensor_predicted1_mfcc,
             self.training_step_preds_family_mfcc,
             instruments_group_short,
+            threshold=1e-01,
         )
         populate_table(
             tensor_true1,
             tensor_predicted1_mfcc,
             self.training_step_target_family_mfcc,
             instruments_group_short,
+            threshold=0,
         )
 
         populate_table(
@@ -240,14 +242,16 @@ class Module(pl.LightningModule):
             tensor_predicted2_mfcc,
             self.training_step_preds_instruments_mfcc,
             instruments,
-            instruments_short,
+            expanded=instruments_short,
+            threshold=1e-01,
         )
         populate_table(
             tensor_true2,
             tensor_predicted2_mfcc,
             self.training_step_target_instruments_mfcc,
             instruments,
-            instruments_short,
+            expanded=instruments_short,
+            threshold=0,
         )
 
         populate_table(
@@ -255,12 +259,14 @@ class Module(pl.LightningModule):
             tensor_predicted1,
             self.training_step_preds_family,
             instruments_group_short,
+            threshold=1e-01,
         )
         populate_table(
             tensor_true1,
             tensor_predicted1,
             self.training_step_target_family,
             instruments_group_short,
+            threshold=0,
         )
 
         populate_table(
@@ -268,14 +274,16 @@ class Module(pl.LightningModule):
             tensor_predicted2,
             self.training_step_preds_instruments,
             instruments,
-            instruments_short,
+            expanded=instruments_short,
+            threshold=1e-01,
         )
         populate_table(
             tensor_true2,
             tensor_predicted2,
             self.training_step_target_instruments,
             instruments,
-            instruments_short,
+            expanded=instruments_short,
+            threshold=0,
         )
 
         return (
