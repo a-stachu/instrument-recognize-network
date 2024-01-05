@@ -29,6 +29,7 @@ def training(case):
         true_labels_instruments=true_labels_instruments,
         true_labels_family=true_labels_family,
         variant=case,
+        num_epochs=1,
     )
 
     # logger = TensorBoardLogger("logs/", name="logger")
@@ -57,5 +58,5 @@ trainer = pl.Trainer(
 
 # [ 1000 = 1 [sec] | 100 = 100 [ms] | 10 = 10 [ms] ]
 
-training(10)
+training(1000)
 test(trainer)

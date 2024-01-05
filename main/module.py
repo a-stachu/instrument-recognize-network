@@ -10,7 +10,7 @@ from torchmetrics.classification import (
     BinaryAccuracy,
 )
 import pandas as pd
-
+from collections import Counter
 import numpy as np
 from instruments import (
     instruments_map_arr_alternative_short as instruments_map_arr_alternative,
@@ -31,11 +31,13 @@ class Module(pl.LightningModule):
         true_labels_instruments,
         true_labels_family,
         variant,
+        num_epochs,
         learning_rate=1e-3,
     ):
         super().__init__()
 
         self.learning_rate = learning_rate
+        self.num_epochs = num_epochs
 
         self.model_instruments = model_instruments
         self.model_family = model_family
@@ -43,6 +45,11 @@ class Module(pl.LightningModule):
         self.true_labels_family = true_labels_family
 
         self.variant = variant
+
+        self.epoch = 1  # current epoch
+        self.temporary = []
+        self.dict1 = {}
+        self.dict2 = {}
 
         self.training_step_preds_instruments = {}
         self.training_step_target_instruments = {}
@@ -53,6 +60,64 @@ class Module(pl.LightningModule):
         self.training_step_target_instruments_mfcc = {}
         self.training_step_preds_family_mfcc = {}
         self.training_step_target_family_mfcc = {}
+
+        # ------------------------ [TRENING]
+        self.arr_train_loss_family = []
+        self.arr_train_loss_instruments = []
+        self.arr_train_loss_family_mfcc = []
+        self.arr_train_loss_instruments_mfcc = []
+
+        self.arr_train_precision_family = []
+        self.arr_train_precision_instruments = []
+        self.arr_train_precision_family_mfcc = []
+        self.arr_train_precision_instruments_mfcc = []
+
+        self.arr_train_recall_family = []
+        self.arr_train_recall_instruments = []
+        self.arr_train_recall_family_mfcc = []
+        self.arr_train_recall_instruments_mfcc = []
+
+        self.arr_train_f1_family = []
+        self.arr_train_f1_instruments = []
+        self.arr_train_f1_family_mfcc = []
+        self.arr_train_f1_instruments_mfcc = []
+
+        self.arr_train_accuracy_family = []
+        self.arr_train_accuracy_instruments = []
+        self.arr_train_accuracy_family_mfcc = []
+        self.arr_train_accuracy_instruments_mfcc = []
+        self.arr_train_accuracy = []
+        self.arr_train_accuracy_mfcc = []
+        self.arr_train_accuracy_combined = []
+
+        # ------------------------ [TEST]
+        self.arr_test_loss_family = []
+        self.arr_test_loss_instruments = []
+        self.arr_test_loss_family_mfcc = []
+        self.arr_test_loss_instruments_mfcc = []
+
+        self.arr_test_precision_family = []
+        self.arr_test_precision_instruments = []
+        self.arr_test_precision_family_mfcc = []
+        self.arr_test_precision_instruments_mfcc = []
+
+        self.arr_test_recall_family = []
+        self.arr_test_recall_instruments = []
+        self.arr_test_recall_family_mfcc = []
+        self.arr_test_recall_instruments_mfcc = []
+
+        self.arr_test_f1_family = []
+        self.arr_test_f1_instruments = []
+        self.arr_test_f1_family_mfcc = []
+        self.arr_test_f1_instruments_mfcc = []
+
+        self.arr_test_accuracy_family = []
+        self.arr_test_accuracy_instruments = []
+        self.arr_test_accuracy_family_mfcc = []
+        self.arr_test_accuracy_instruments_mfcc = []
+        self.arr_test_accuracy = []
+        self.arr_test_accuracy_mfcc = []
+        self.arr_test_accuracy_combined = []
 
     def forward(self, x):
         output_instruments = self.model_instruments(x)
@@ -68,6 +133,7 @@ class Module(pl.LightningModule):
         prediction_2_mfcc = output_instruments_mfcc
         prediction_1_mfcc = output_family_mfcc
         loss = torch.nn.MSELoss()
+
         loss_family = loss(prediction_1, y_1)  # y -> true labels
         loss_instruments = loss(prediction_2, y_2)  # y -> true labels
         loss_family_mfcc = loss(prediction_1_mfcc, y_1)  # y -> true labels
@@ -75,6 +141,7 @@ class Module(pl.LightningModule):
 
         precision_calc = BinaryPrecision(threshold=1e-04)
         precision_calc.to(device)
+
         precision_family = precision_calc(prediction_1, y_1).item()
         precision_instruments = precision_calc(prediction_2, y_2).item()
         precision_family_mfcc = precision_calc(prediction_1_mfcc, y_1).item()
@@ -82,6 +149,7 @@ class Module(pl.LightningModule):
 
         recall_calc = BinaryRecall(threshold=1e-04)
         recall_calc.to(device)
+
         recall_family = recall_calc(prediction_1, y_1).item()
         recall_instruments = recall_calc(prediction_2, y_2).item()
         recall_family_mfcc = recall_calc(prediction_1_mfcc, y_1).item()
@@ -89,6 +157,7 @@ class Module(pl.LightningModule):
 
         f1_calc = BinaryF1Score(threshold=1e-04)
         f1_calc.to(device)
+
         f1_family = f1_calc(prediction_1, y_1).item()
         f1_instruments = f1_calc(prediction_2, y_2).item()
         f1_family_mfcc = f1_calc(prediction_1_mfcc, y_1).item()
@@ -119,7 +188,6 @@ class Module(pl.LightningModule):
         accuracy = accuracy_calc(torch.Tensor(y_pred_2).to(device), y_2)
         accuracy_family = accuracy_calc(torch.Tensor(prediction_1).to(device), y_1)
         accuracy_instrument = accuracy_calc(torch.Tensor(prediction_2).to(device), y_2)
-
         accuracy_mfcc = accuracy_calc(torch.Tensor(y_pred_2_mfcc).to(device), y_2)
         accuracy_family_mfcc = accuracy_calc(
             torch.Tensor(prediction_1_mfcc).to(device), y_1
@@ -132,18 +200,19 @@ class Module(pl.LightningModule):
             torch.Tensor(y_pred_2_combined).to(device), y_2
         )
 
-        for value in instruments_group_short.values():
-            self.training_step_preds_family[value] = 0
-            self.training_step_target_family[value] = 0
-            self.training_step_preds_family_mfcc[value] = 0
-            self.training_step_target_family_mfcc[value] = 0
+        if self.epoch == 1:
+            for value in instruments_group_short.values():
+                self.training_step_preds_family[value] = 0
+                self.training_step_target_family[value] = 0
+                self.training_step_preds_family_mfcc[value] = 0
+                self.training_step_target_family_mfcc[value] = 0
 
-        for value in instruments_short.values():
-            value = instruments[value]
-            self.training_step_preds_instruments[value] = 0
-            self.training_step_target_instruments[value] = 0
-            self.training_step_preds_instruments_mfcc[value] = 0
-            self.training_step_target_instruments_mfcc[value] = 0
+            for value in instruments_short.values():
+                value = instruments[value]
+                self.training_step_preds_instruments[value] = 0
+                self.training_step_target_instruments[value] = 0
+                self.training_step_preds_instruments_mfcc[value] = 0
+                self.training_step_target_instruments_mfcc[value] = 0
 
         tensor_true1 = y_1.cpu().numpy()
         tensor_predicted1 = prediction_1.cpu().detach().numpy()
@@ -268,6 +337,32 @@ class Module(pl.LightningModule):
             accuracy_combined,
         ) = self.step(segments, segments_mfcc, labels_family, labels_instruments)
 
+        self.temporary = [
+            loss_family.item(),
+            loss_instruments.item(),
+            loss_family_mfcc.item(),
+            loss_instruments_mfcc.item(),
+            precision_family,
+            precision_instruments,
+            precision_family_mfcc,
+            precision_instruments_mfcc,
+            recall_family,
+            recall_instruments,
+            recall_family_mfcc,
+            recall_instruments_mfcc,
+            f1_family,
+            f1_instruments,
+            f1_family_mfcc,
+            f1_instruments_mfcc,
+            accuracy_family.item(),
+            accuracy_instrument.item(),
+            accuracy_family_mfcc.item(),
+            accuracy_instrument_mfcc.item(),
+            accuracy.item(),
+            accuracy_mfcc.item(),
+            accuracy_combined.item(),
+        ]
+
         self.log("accuracy", accuracy, prog_bar=True)
         self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
         self.log("accuracy_family", accuracy_family, prog_bar=True)
@@ -330,6 +425,41 @@ class Module(pl.LightningModule):
             accuracy_combined,
         ) = self.step(segments, segments_mfcc, labels_family, labels_instruments)
 
+        print(accuracy_combined.cpu().item())
+
+        df4 = pd.DataFrame(
+            {
+                "test_loss_family": loss_family.item(),
+                "test_loss_instruments": loss_instruments.item(),
+                "test_loss_family_mfcc": loss_family_mfcc.item(),
+                "test_loss_instruments_mfcc": loss_instruments_mfcc.item(),
+                "test_precision_family": precision_family,
+                "test_precision_instruments": precision_instruments,
+                "test_precision_family_mfcc": precision_family_mfcc,
+                "test_precision_instruments_mfcc": precision_instruments_mfcc,
+                "test_recall_family": recall_family,
+                "test_recall_instruments": recall_instruments,
+                "test_recall_family_mfcc": recall_family_mfcc,
+                "test_recall_instruments_mfcc": recall_instruments_mfcc,
+                "test_f1_family": f1_family,
+                "test_f1_instruments": f1_instruments,
+                "test_f1_family_mfcc": f1_family_mfcc,
+                "test_f1_instruments_mfcc": f1_instruments_mfcc,
+                "test_accuracy_family": accuracy_family.item(),
+                "test_accuracy_instruments": accuracy_instrument.item(),
+                "test_accuracy_family_mfcc": accuracy_family_mfcc.item(),
+                "test_accuracy_instruments_mfcc": accuracy_instrument_mfcc.item(),
+                "test_accuracy": accuracy.item(),
+                "test_accuracy_mfcc": accuracy_mfcc.item(),
+                "test_accuracy_combined": accuracy_combined.item(),
+            },
+            index=["value"],
+        )
+
+        df4.to_csv(
+            f"TEST_{self.variant}_{self.num_epochs}_family_{type(self.model_family).__name__}_instruments_{type(self.model_instruments).__name__}.csv"
+        )
+
         self.log("accuracy", accuracy, prog_bar=True)
         self.log("accuracy_instrument", accuracy_instrument, prog_bar=True)
         self.log("accuracy_family", accuracy_family, prog_bar=True)
@@ -370,37 +500,118 @@ class Module(pl.LightningModule):
         return load_test_data(self.variant)
 
     def on_train_epoch_end(self):
-        dict1 = {}
-        dict2 = {}
-
         for key in self.training_step_target_family:
-            dict1[key] = [
+            self.dict1[key] = [
                 self.training_step_preds_family[key],
                 self.training_step_preds_family_mfcc[key],
                 self.training_step_target_family[key],
             ]
 
         for key in self.training_step_target_instruments:
-            dict2[key] = [
+            self.dict2[key] = [
                 self.training_step_preds_instruments[key],
                 self.training_step_preds_instruments_mfcc[key],
                 self.training_step_target_instruments[key],
             ]
 
-        df1 = pd.DataFrame(dict1, index=["predicted_melspec", "predicted_mfcc", "true"])
-        df2 = pd.DataFrame(dict2, index=["predicted_melspec", "predicted_mfcc", "true"])
+        df1 = pd.DataFrame(
+            self.dict1, index=["predicted_melspec", "predicted_mfcc", "true"]
+        )
+        df2 = pd.DataFrame(
+            self.dict2, index=["predicted_melspec", "predicted_mfcc", "true"]
+        )
         print(df1)
         print(df2)
 
-        self.training_step_preds_family.clear()  # free memory
-        self.training_step_target_instruments.clear()  # free memory
-        self.training_step_preds_instruments.clear()  # free memory
-        self.training_step_target_family.clear()  # free memory
+        df1.to_csv(
+            f"TRAINING_{self.variant}_{self.num_epochs}_family_{type(self.model_family).__name__}_table.csv"
+        )
 
-        self.training_step_preds_instruments_mfcc.clear()
-        self.training_step_target_instruments_mfcc.clear()
-        self.training_step_preds_family_mfcc.clear()
-        self.training_step_target_family_mfcc.clear()
+        df2.to_csv(
+            f"TRAINING_{self.variant}_{self.num_epochs}_instruments_{type(self.model_instruments).__name__}_table.csv"
+        )
+
+        # ------------------------ [TRENING]
+        self.arr_train_loss_family.append(self.temporary[0])
+        self.arr_train_loss_instruments.append(self.temporary[1])
+        self.arr_train_loss_family_mfcc.append(self.temporary[2])
+        self.arr_train_loss_instruments_mfcc.append(self.temporary[3])
+
+        self.arr_train_precision_family.append(self.temporary[4])
+        self.arr_train_precision_instruments.append(self.temporary[5])
+        self.arr_train_precision_family_mfcc.append(self.temporary[6])
+        self.arr_train_precision_instruments_mfcc.append(self.temporary[7])
+
+        self.arr_train_recall_family.append(self.temporary[8])
+        self.arr_train_recall_instruments.append(self.temporary[9])
+        self.arr_train_recall_family_mfcc.append(self.temporary[10])
+        self.arr_train_recall_instruments_mfcc.append(self.temporary[11])
+
+        self.arr_train_f1_family.append(self.temporary[12])
+        self.arr_train_f1_instruments.append(self.temporary[13])
+        self.arr_train_f1_family_mfcc.append(self.temporary[14])
+        self.arr_train_f1_instruments_mfcc.append(self.temporary[15])
+
+        self.arr_train_accuracy_family.append(self.temporary[16])
+        self.arr_train_accuracy_instruments.append(self.temporary[17])
+        self.arr_train_accuracy_family_mfcc.append(self.temporary[18])
+        self.arr_train_accuracy_instruments_mfcc.append(self.temporary[19])
+        self.arr_train_accuracy.append(self.temporary[20])
+        self.arr_train_accuracy_mfcc.append(self.temporary[21])
+        self.arr_train_accuracy_combined.append(self.temporary[22])
+
+        if self.epoch == self.num_epochs:
+            df3 = pd.DataFrame(
+                {
+                    "train_loss_family": self.arr_train_loss_family,
+                    "train_loss_instruments": self.arr_train_loss_instruments,
+                    "train_loss_family_mfcc": self.arr_train_loss_family_mfcc,
+                    "train_loss_instruments_mfcc": self.arr_train_loss_instruments_mfcc,
+                    "train_precision_family": self.arr_train_precision_family,
+                    "train_precision_instruments": self.arr_train_precision_instruments,
+                    "train_precision_family_mfcc": self.arr_train_precision_family_mfcc,
+                    "train_precision_instruments_mfcc": self.arr_train_precision_instruments_mfcc,
+                    "train_recall_family": self.arr_train_recall_family,
+                    "train_recall_instruments": self.arr_train_recall_instruments,
+                    "train_recall_family_mfcc": self.arr_train_recall_family_mfcc,
+                    "train_recall_instruments_mfcc": self.arr_train_recall_instruments_mfcc,
+                    "train_f1_family": self.arr_train_f1_family,
+                    "train_f1_instruments": self.arr_train_f1_instruments,
+                    "train_f1_family_mfcc": self.arr_train_f1_family_mfcc,
+                    "train_f1_instruments_mfcc": self.arr_train_f1_instruments_mfcc,
+                    "train_accuracy_family": self.arr_train_accuracy_family,
+                    "train_accuracy_instruments": self.arr_train_accuracy_instruments,
+                    "train_accuracy_family_mfcc": self.arr_train_accuracy_family_mfcc,
+                    "train_accuracy_instruments_mfcc": self.arr_train_accuracy_instruments_mfcc,
+                    "train_accuracy": self.arr_train_accuracy,
+                    "train_accuracy_mfcc": self.arr_train_accuracy_mfcc,
+                    "train_accuracy_combined": self.arr_train_accuracy_combined,
+                }
+            )
+
+            index_labels = []
+            for i in range(len(df3)):
+                index_labels.append(f"EPOCH_{i + 1}")
+
+            # Assign the index to the DataFrame
+            df3.index = index_labels
+            df3.to_csv(
+                f"TRAINING_{self.variant}_{self.num_epochs}_family_{type(self.model_family).__name__}_instruments_{type(self.model_instruments).__name__}.csv"
+            )
+
+        self.temporary.clear()
+
+        # self.training_step_preds_family.clear()  # free memory
+        # self.training_step_target_instruments.clear()  # free memory
+        # self.training_step_preds_instruments.clear()  # free memory
+        # self.training_step_target_family.clear()  # free memory
+
+        # self.training_step_preds_instruments_mfcc.clear()
+        # self.training_step_target_instruments_mfcc.clear()
+        # self.training_step_preds_family_mfcc.clear()
+        # self.training_step_target_family_mfcc.clear()
+
+        self.epoch += 1
 
     def score_level_fusion(
         self,

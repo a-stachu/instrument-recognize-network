@@ -22,7 +22,7 @@ def populate_table(tensor_true, tensor_predicted, data, instruments, expanded=No
     for i in range(len(tensor_true)):
         for j in range(len(tensor_true[i])):
             if tensor_true[i][j] == 1:
-                if tensor_predicted[i][j] >= 0.5:
+                if 1 >= tensor_predicted[i][j] >= 0.5:
                     if expanded:
                         data[instruments[expanded[j + 1]]] += 1
                     else:
